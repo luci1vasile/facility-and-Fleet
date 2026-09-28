@@ -1,0 +1,523 @@
+import {
+  BuildingMaintenanceItem,
+  ServiceProvider,
+  VehicleItem,
+  VignetteCountry,
+} from '../types';
+import { addDaysToTodayISO, formatTodayISO } from '../utils/dateUtils';
+
+export const BUILDING_SUBCATEGORIES: string[] = [
+  'AC cleaning',
+  'Cleaning Service',
+  'Windows Cleaning',
+  'Coffee Machine Maintanance',
+  'Electrical Inspection (PRAM TEST)',
+  'Garbage Disposal',
+  'Camera System Maintanance',
+  'HVAC Maintanance',
+  'Security/ Intercom',
+  'Doors Inspection',
+  'Windows Inspection',
+  'Emergency Lights inspection',
+  'Fire Instalation Inspection',
+  'Card Access Maintanance',
+  'Doors Maintanance',
+  'EV Chargers',
+  'Septic Tank Cleaning',
+  'Grease Trap Inspection',
+  'Grease Trap Cleaning',
+  'Fence Inspection',
+  'Lighting Inspection',
+  'Lighting Conductor',
+  'Gates Maintanance',
+  'Roof Maintanance',
+  'Rain Water Drainage Cleaning',
+  'Solar Panels Inspection',
+  'Solar Panel Cleaning',
+];
+
+export const VIGNETTE_COUNTRIES: VignetteCountry[] = [
+  'Romania',
+  'Ungaria',
+  'Slovacia',
+  'Cehia',
+  'Austria',
+];
+
+export function createInitialBuildingItems(): BuildingMaintenanceItem[] {
+  // Distribute expiration offsets so Overdue (<=3d), Due soon (4..15d), and OK (>15d) all have realistic entries
+  const offsets: number[] = [
+    1,   // AC cleaning -> Overdue (1 day left)
+    18,  // Cleaning Service -> OK
+    7,   // Windows Cleaning -> Due soon (7 days)
+    2,   // Coffee Machine Maintanance -> Overdue (2 days left)
+    -1,  // Electrical Inspection (PRAM TEST) -> Overdue (expired 1 day ago)
+    12,  // Garbage Disposal -> Due soon
+    45,  // Camera System Maintanance -> OK
+    9,   // HVAC Maintanance -> Due soon
+    90,  // Security/ Intercom -> OK
+    60,  // Doors Inspection -> OK
+    110, // Windows Inspection -> OK
+    3,   // Emergency Lights inspection -> Overdue (3 days left)
+    14,  // Fire Instalation Inspection -> Due soon
+    120, // Card Access Maintanance -> OK
+    85,  // Doors Maintanance -> OK
+    6,   // EV Chargers -> Due soon
+    30,  // Septic Tank Cleaning -> OK
+    11,  // Grease Trap Inspection -> Due soon
+    25,  // Grease Trap Cleaning -> OK
+    180, // Fence Inspection -> OK
+    75,  // Lighting Inspection -> OK
+    0,   // Lighting Conductor -> Overdue (due today)
+    40,  // Gates Maintanance -> OK
+    150, // Roof Maintanance -> OK
+    15,  // Rain Water Drainage Cleaning -> Due soon
+    210, // Solar Panels Inspection -> OK
+    35,  // Solar Panel Cleaning -> OK
+  ];
+
+  const defaultProviders: Record<string, string> = {
+    'Electrical Inspection (PRAM TEST)': 'AAElectric',
+    'Lighting Conductor': 'AAElectric',
+    'Lighting Inspection': 'AAElectric',
+    'EV Chargers': 'AAElectric',
+    'AC cleaning': 'ClimaVest HVAC Timișoara',
+    'HVAC Maintanance': 'ClimaVest HVAC Timișoara',
+    'Fire Instalation Inspection': 'StingProt PSI Timișoara',
+    'Emergency Lights inspection': 'StingProt PSI Timișoara',
+    'Camera System Maintanance': 'BanatSecuritate & Interfon',
+    'Security/ Intercom': 'BanatSecuritate & Interfon',
+    'Card Access Maintanance': 'BanatSecuritate & Interfon',
+    'Solar Panels Inspection': 'SolarBanat Energy Timișoara',
+    'Solar Panel Cleaning': 'SolarBanat Energy Timișoara',
+  };
+
+  const today = formatTodayISO();
+
+  return BUILDING_SUBCATEGORIES.map((name, idx) => {
+    const offset = offsets[idx % offsets.length];
+    const expiryDate = addDaysToTodayISO(offset);
+    return {
+      id: `bldg-${idx + 1}`,
+      code: `BM-${String(idx + 1).padStart(2, '0')}`,
+      name,
+      expiryDate,
+      lastRenewedDate: today,
+      lastPeriodLabel: '6 luni',
+      assignedProvider: defaultProviders[name] || 'Facility Tech Timișoara',
+      notes: `Monitorizare periodică conform planului tehnic pentru ${name}.`,
+      history: [
+        {
+          id: `hist-init-${idx + 1}`,
+          renewedAt: today,
+          baseDate: today,
+          periodLabel: '6 luni',
+          newExpiryDate: expiryDate,
+        },
+      ],
+    };
+  });
+}
+
+export function createInitialVehicles(): VehicleItem[] {
+  const today = formatTodayISO();
+  return [
+    {
+      id: 'veh-1',
+      plateNumber: 'TM 88 POP',
+      vinNumber: 'W1N1671191A482910',
+      userName: 'Lucian Pop',
+      makeModel: 'Mercedes-Benz GLE 300d 4MATIC',
+      itpExpiryDate: addDaysToTodayISO(140),
+      itpLastRenewedDate: today,
+      itpPeriodYears: 2,
+      vignettes: [
+        { country: 'Romania', expiryDate: addDaysToTodayISO(195), lastRenewedDate: today, lastDurationCode: '12m' },
+        { country: 'Ungaria', expiryDate: addDaysToTodayISO(8), lastRenewedDate: today, lastDurationCode: '10d' },
+        { country: 'Slovacia', expiryDate: addDaysToTodayISO(42), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Cehia', expiryDate: addDaysToTodayISO(65), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Austria', expiryDate: addDaysToTodayISO(2), lastRenewedDate: today, lastDurationCode: '10d' },
+      ],
+    },
+    {
+      id: 'veh-2',
+      plateNumber: 'TM 01 FFM',
+      vinNumber: 'YV1UZK5VCL1529384',
+      userName: 'Alexandru Munteanu',
+      makeModel: 'Volvo XC60 B4 AWD',
+      itpExpiryDate: addDaysToTodayISO(2), // Overdue (<= 3 days)
+      itpLastRenewedDate: today,
+      itpPeriodYears: 2,
+      vignettes: [
+        { country: 'Romania', expiryDate: addDaysToTodayISO(12), lastRenewedDate: today, lastDurationCode: '12m' },
+        { country: 'Ungaria', expiryDate: addDaysToTodayISO(90), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Slovacia', expiryDate: addDaysToTodayISO(30), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Cehia', expiryDate: addDaysToTodayISO(45), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Austria', expiryDate: addDaysToTodayISO(120), lastRenewedDate: today, lastDurationCode: '6m' },
+      ],
+    },
+    {
+      id: 'veh-3',
+      plateNumber: 'TM 24 LOG',
+      vinNumber: 'UU1DJF00869284715',
+      userName: 'Cristian Vasilescu',
+      makeModel: 'Dacia Duster Extreme 4x4 (Mașină Nouă)',
+      itpExpiryDate: addDaysToTodayISO(680),
+      itpLastRenewedDate: today,
+      itpPeriodYears: 3,
+      vignettes: [
+        { country: 'Romania', expiryDate: addDaysToTodayISO(280), lastRenewedDate: today, lastDurationCode: '12m' },
+        { country: 'Ungaria', expiryDate: addDaysToTodayISO(1), lastRenewedDate: today, lastDurationCode: '7d' },
+        { country: 'Slovacia', expiryDate: addDaysToTodayISO(22), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Cehia', expiryDate: addDaysToTodayISO(25), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Austria', expiryDate: addDaysToTodayISO(14), lastRenewedDate: today, lastDurationCode: '10d' },
+      ],
+    },
+    {
+      id: 'veh-4',
+      plateNumber: 'TM 55 TEC',
+      vinNumber: 'VF3YCBMFC12948371',
+      userName: 'Mihai Radu',
+      makeModel: 'Peugeot Boxer Autoutilitară',
+      itpExpiryDate: addDaysToTodayISO(10), // Due soon
+      itpLastRenewedDate: today,
+      itpPeriodYears: 1,
+      vignettes: [
+        { country: 'Romania', expiryDate: addDaysToTodayISO(3), lastRenewedDate: today, lastDurationCode: '12m' },
+        { country: 'Ungaria', expiryDate: addDaysToTodayISO(55), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Slovacia', expiryDate: addDaysToTodayISO(60), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Cehia', expiryDate: addDaysToTodayISO(75), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Austria', expiryDate: addDaysToTodayISO(95), lastRenewedDate: today, lastDurationCode: '6m' },
+      ],
+    },
+    {
+      id: 'veh-5',
+      plateNumber: 'TM 90 TRK',
+      vinNumber: 'YV2RT40A8LA847291',
+      userName: 'Sorin Ionescu',
+      makeModel: 'Volvo FH 500 / Scania R450 Fleet',
+      itpExpiryDate: addDaysToTodayISO(85),
+      itpLastRenewedDate: today,
+      itpPeriodYears: 1,
+      vignettes: [
+        { country: 'Romania', expiryDate: addDaysToTodayISO(150), lastRenewedDate: today, lastDurationCode: '12m' },
+        { country: 'Ungaria', expiryDate: addDaysToTodayISO(6), lastRenewedDate: today, lastDurationCode: '10d' },
+        { country: 'Slovacia', expiryDate: addDaysToTodayISO(5), lastRenewedDate: today, lastDurationCode: '10d' },
+        { country: 'Cehia', expiryDate: addDaysToTodayISO(40), lastRenewedDate: today, lastDurationCode: '3m' },
+        { country: 'Austria', expiryDate: addDaysToTodayISO(50), lastRenewedDate: today, lastDurationCode: '3m' },
+      ],
+    },
+  ];
+}
+
+export const INITIAL_PROVIDERS: ServiceProvider[] = [
+  // Mandatory 19 providers requested by user + Building Maintenance providers within 100km of Timisoara
+  {
+    id: 'prov-1',
+    name: 'Casa Auro Mercedes (Casa Auto Timișoara)',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Mercedes-Benz, diagnoză, mentenanță flotă și tinichigerie',
+    phone: '+40 256 408 000',
+    email: 'office@casaauto-tm.ro',
+    address: 'Calea Șagului nr. 142, 300516 Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 4,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Casa+Auto+Mercedes+Calea+Sagului+142+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-2',
+    name: 'Casa Auto Hyundai',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Hyundai, revizii periodice, garanții și reparații mecanice/electrice',
+    phone: '+40 256 408 020',
+    email: 'service.hyundai@casaauto-tm.ro',
+    address: 'Calea Șagului nr. 142, 300516 Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 4,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Casa+Auto+Hyundai+Calea+Sagului+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-3',
+    name: 'Service Peugeot',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Peugeot (Mega Group), mecanică, electrică și piese originale',
+    phone: '+40 256 219 060',
+    email: 'service@megagroup.ro',
+    address: 'Calea Lugojului nr. 135, Ghiroda / Timișoara, Jud. Timiș',
+    city: 'Timișoara / Ghiroda',
+    distanceKm: 6,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Service+Peugeot+Calea+Lugojului+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-4',
+    name: 'Service Volvo(Tudorut)',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service specializat Volvo (Tudoruț), diagnoză VIDA, revizii și reparații complexe',
+    phone: '+40 722 760 412',
+    email: 'contact@servicevolvotimisoara.ro',
+    address: 'Str. Constructorilor / Dumbrăvița, Zona Metropolitană Timișoara',
+    city: 'Timișoara / Dumbrăvița',
+    distanceKm: 5,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Service+Volvo+Tudorut+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-5',
+    name: 'Dacia Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Reprezentanță și service autorizat Dacia, revizii flotă, mecanică și caroserie',
+    phone: '+40 256 294 800',
+    email: 'programari@autoeuropa.ro',
+    address: 'Calea Circumvalațiunii nr. 69 / Calea Lugojului, Timișoara',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Dacia+Service+Auto+Europa+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-6',
+    name: 'Renault Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Renault Pro+ pentru autoturisme și utilitare comerciale',
+    phone: '+40 256 294 801',
+    email: 'service.renault@autoeuropa.ro',
+    address: 'Calea Circumvalațiunii nr. 69, 300671 Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Renault+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-7',
+    name: 'Kia Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Kia Motors (Silver Motors), revizii, diagnoză și sisteme hibride/EV',
+    phone: '+40 256 222 108',
+    email: 'service@silvermotors.ro',
+    address: 'Calea Lugojului nr. 135, 307200 Ghiroda, Timișoara',
+    city: 'Timișoara',
+    distanceKm: 6,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Silver+Motors+Kia+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-8',
+    name: 'Alfa Romeo Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Alfa Romeo, mentenanță motoare, transmisii și electronică',
+    phone: '+40 256 272 055',
+    email: 'service.alfaromeo@autoglobus2000.ro',
+    address: 'Calea Șagului nr. 201, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 5,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Alfa+Romeo+Service+Calea+Sagului+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-9',
+    name: 'Suzuki Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service autorizat Suzuki AllGrip & Hybrid, revizii periodice și tinichigerie',
+    phone: '+40 256 220 205',
+    email: 'suzuki@autoglobus2000.ro',
+    address: 'Calea Șagului nr. 201 / Calea Lugojului, Timișoara',
+    city: 'Timișoara',
+    distanceKm: 5,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Suzuki+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-10',
+    name: 'Alfa Star Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service multimarcă autoturisme și autoutilitare, geometrie roți, frâne și direcție',
+    phone: '+40 256 214 330',
+    email: 'office@alfastar-tm.ro',
+    address: 'Str. Stan Vidrighin, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Alfa+Star+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-11',
+    name: 'Alfa Star ITP',
+    category: 'Stație ITP / MOT',
+    activityDomain: 'Stație autorizată RAR pentru Inspecții Tehnice Periodice (ITP / MOT) cat. II și III',
+    phone: '+40 256 214 331',
+    email: 'itp@alfastar-tm.ro',
+    address: 'Str. Stan Vidrighin, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Alfa+Star+ITP+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-12',
+    name: 'Maracana ITP',
+    category: 'Stație ITP / MOT',
+    activityDomain: 'Stație ITP autorizată RAR pentru autoturisme, 4x4 și autoutilitare până la 3.5t',
+    phone: '+40 723 511 890',
+    email: 'contact@maracanaitp.ro',
+    address: 'Str. Miresei nr. 1, 300656 Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Maracana+ITP+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-13',
+    name: 'Maracana Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service auto multimarcă, reparații mecanice, schimburi ulei, distribuții și climatizare',
+    phone: '+40 723 511 891',
+    email: 'service@maracanaitp.ro',
+    address: 'Str. Miresei nr. 1, 300656 Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Maracana+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-14',
+    name: 'Transpol Service',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Service auto și vehicule comerciale, revizii tehnice, tahografe și mecanică grea',
+    phone: '+40 256 282 410',
+    email: 'service@transpol.ro',
+    address: 'Calea Torontalului / Zona Industrială, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 5,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Transpol+Service+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-15',
+    name: 'Transpol ITP',
+    category: 'Stație ITP / MOT',
+    activityDomain: 'Stație ITP autorizată RAR pentru autoturisme, autoutilitare și camioane (Cat. II & III)',
+    phone: '+40 256 282 411',
+    email: 'itp@transpol.ro',
+    address: 'Calea Torontalului, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 5,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Transpol+ITP+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-16',
+    name: 'Volvo Trucks Izvin',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Centru regional Volvo Trucks & Buses, service camioane, diagnoză și mentenanță flotă grea',
+    phone: '+40 256 386 110',
+    email: 'service.izvin@volvo.com',
+    address: 'DN6 KM 540+200, Localitatea Izvin, 307359 Recaș, Jud. Timiș',
+    city: 'Izvin (Recaș)',
+    distanceKm: 18,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Volvo+Trucks+Izvin+Timis',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-17',
+    name: 'Scania Arad',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Scania România Centru Service Arad, reparații camioane, remorci și contracte mentenanță',
+    phone: '+40 257 215 800',
+    email: 'arad@scania.ro',
+    address: 'Calea Zimandului DN79, 310210 Arad, Jud. Arad',
+    city: 'Arad',
+    distanceKm: 52,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Scania+Service+Arad',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-18',
+    name: 'Euromaster',
+    category: 'Service Auto & Reprezentanță',
+    activityDomain: 'Anvelope autoturisme și camioane, geometrie 3D, hotel anvelope și mentenanță rapidă flotă',
+    phone: '+40 256 201 990',
+    email: 'timisoara@euromaster.ro',
+    address: 'Calea Lugojului DN6 / Giarmata, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 7,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Euromaster+Timisoara',
+    isMandatory: true,
+  },
+  {
+    id: 'prov-19',
+    name: 'AAElectric',
+    category: 'Instalații Electrice & PRAM',
+    activityDomain: 'Verificări PRAM (Electrical Inspection), paratrăsnet (Lighting Conductor), stații EV Chargers și iluminat de siguranță',
+    phone: '+40 744 592 110',
+    email: 'office@aaelectric-tm.ro',
+    address: 'B-dul Liviu Rebreanu nr. 94, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 2,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=AAElectric+Timisoara',
+    isMandatory: true,
+  },
+  // Additional Building Maintenance specialists within 100km of Timisoara
+  {
+    id: 'prov-20',
+    name: 'ClimaVest HVAC Timișoara',
+    category: 'Mentenanță Clădiri & HVAC',
+    activityDomain: 'HVAC Maintanance, AC cleaning, centrale ventilație și chiller clădiri de birouri',
+    phone: '+40 256 491 220',
+    email: 'service@climavest-tm.ro',
+    address: 'Str. Polonă nr. 4, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=HVAC+Service+Strada+Polona+Timisoara',
+  },
+  {
+    id: 'prov-21',
+    name: 'StingProt PSI & ISU Banat',
+    category: 'Sisteme Securitate & PSI',
+    activityDomain: 'Fire Instalation Inspection, hidranți, desfumare și Emergency Lights inspection',
+    phone: '+40 256 225 400',
+    email: 'tehnic@stingprot-banat.ro',
+    address: 'Calea Buziașului nr. 28, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 4,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Verificari+PSI+Calea+Buziasului+Timisoara',
+  },
+  {
+    id: 'prov-22',
+    name: 'BanatSecuritate & Interfon',
+    category: 'Sisteme Securitate & PSI',
+    activityDomain: 'Camera System Maintanance, Security/ Intercom, Card Access Maintanance și porți automatizate',
+    phone: '+40 728 990 112',
+    email: 'suport@banatsecuritate.ro',
+    address: 'Calea Aradului nr. 48, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 3,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Sisteme+Securitate+Calea+Aradului+Timisoara',
+  },
+  {
+    id: 'prov-23',
+    name: 'EcoClean & Salubritate Vest (RETIM / EcoSeptic)',
+    category: 'Curățenie & Salubritate',
+    activityDomain: 'Cleaning Service, Windows Cleaning, Garbage Disposal, Septic Tank Cleaning, Grease Trap Cleaning',
+    phone: '+40 256 499 490',
+    email: 'contracte@retim.ro',
+    address: 'Str. Oituz nr. 3A, Timișoara, Jud. Timiș',
+    city: 'Timișoara',
+    distanceKm: 2,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=RETIM+Ecologic+Service+Timisoara',
+  },
+  {
+    id: 'prov-24',
+    name: 'SolarBanat & RoofTech Lugoj',
+    category: 'Panouri Solare & Acoperiș',
+    activityDomain: 'Solar Panels Inspection, Solar Panel Cleaning, Roof Maintanance și Rain Water Drainage Cleaning',
+    phone: '+40 256 351 780',
+    email: 'office@solarbanat.ro',
+    address: 'Str. Timișorii nr. 112, Lugoj, Jud. Timiș',
+    city: 'Lugoj',
+    distanceKm: 58,
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Panouri+Solare+Strada+Timisorii+Lugoj',
+  },
+];

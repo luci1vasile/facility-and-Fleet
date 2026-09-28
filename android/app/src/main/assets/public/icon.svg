@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#38bdf8" stroke-opacity="0.25" stroke-width="4" />
+
+  <!-- Office Building (Left/Center-Back) -->
+  <g transform="translate(86, 84)">
+    <rect x="0" y="0" width="164" height="270" rx="12" fill="#f8fafc" stroke="#0f172a" stroke-width="8" />
+    <rect x="20" y="-22" width="124" height="26" rx="6" fill="#38bdf8" />
+    <!-- Building Windows Grid -->
+    <rect x="24" y="24" width="28" height="28" rx="4" fill="#1e3a8a" />
+    <rect x="68" y="24" width="28" height="28" rx="4" fill="#0284c7" />
+    <rect x="112" y="24" width="28" height="28" rx="4" fill="#1e3a8a" />
+
+    <rect x="24" y="68" width="28" height="28" rx="4" fill="#0284c7" />
+    <rect x="68" y="68" width="28" height="28" rx="4" fill="#1e3a8a" />
+    <rect x="112" y="68" width="28" height="28" rx="4" fill="#38bdf8" />
+
+    <rect x="24" y="112" width="28" height="28" rx="4" fill="#1e3a8a" />
+    <rect x="68" y="112" width="28" height="28" rx="4" fill="#38bdf8" />
+    <rect x="112" y="112" width="28" height="28" rx="4" fill="#1e3a8a" />
+
+    <rect x="24" y="156" width="28" height="28" rx="4" fill="#38bdf8" />
+    <rect x="68" y="156" width="28" height="28" rx="4" fill="#1e3a8a" />
+    <rect x="112" y="156" width="28" height="28" rx="4" fill="#0284c7" />
+
+    <!-- Building Entrance -->
+    <rect x="58" y="206" width="48" height="64" rx="6" fill="#0f172a" />
+  </g>
+
+  <!-- Adjustable Wrench / Cheie Reglabila (Right / Crossing) -->
+  <g transform="translate(330, 185) rotate(-35)">
+    <!-- Handle -->
+    <rect x="-22" y="-10" width="44" height="175" rx="18" fill="#e2e8f0" stroke="#0f172a" stroke-width="8" />
+    <rect x="-10" y="20" width="20" height="95" rx="6" fill="#94a3b8" />
+    <circle cx="0" cy="140" r="9" fill="#0f172a" />
+    <!-- Adjustable Knurl / Worm Gear -->
+    <rect x="-26" y="-26" width="52" height="22" rx="6" fill="#38bdf8" stroke="#0f172a" stroke-width="6" />
+    <line x1="-12" y1="-26" x2="-12" y2="-4" stroke="#0f172a" stroke-width="4" />
+    <line x1="0" y1="-26" x2="0" y2="-4" stroke="#0f172a" stroke-width="4" />
+    <line x1="12" y1="-26" x2="12" y2="-4" stroke="#0f172a" stroke-width="4" />
+    <!-- Wrench Head & Jaws -->
+    <path d="M-46,-26 C-56,-70 -30,-108 0,-112 L0,-68 L-18,-56 L-18,-36 L18,-36 L18,-56 L38,-72 C52,-46 46,-26 30,-26 Z" fill="#f8fafc" stroke="#0f172a" stroke-width="8" stroke-linejoin="round" />
+  </g>
+
+  <!-- Automobile / Autoturism (Bottom Foreground) -->
+  <g transform="translate(96, 286)">
+    <!-- Car Body Shadow -->
+    <ellipse cx="160" cy="138" rx="156" ry="16" fill="#090d16" fill-opacity="0.45" />
+    <!-- Car Roof / Cabin -->
+    <path d="M52,58 L92,10 C100,2 112,-2 126,-2 L202,-2 C216,-2 228,4 238,14 L274,58 Z" fill="#38bdf8" stroke="#0f172a" stroke-width="8" stroke-linejoin="round" />
+    <!-- Windows -->
+    <path d="M72,54 L102,14 L158,14 L158,54 Z" fill="#0f172a" />
+    <path d="M170,54 L170,14 L216,14 L250,54 Z" fill="#0f172a" />
+    <!-- Main Chassis -->
+    <rect x="8" y="54" width="308" height="62" rx="24" fill="#f8fafc" stroke="#0f172a" stroke-width="8" />
+    <!-- Headlights & Grille -->
+    <rect x="286" y="68" width="22" height="16" rx="6" fill="#facc15" stroke="#0f172a" stroke-width="4" />
+    <rect x="14" y="68" width="18" height="16" rx="5" fill="#ef4444" stroke="#0f172a" stroke-width="4" />
+    <line x1="120" y1="84" x2="210" y2="84" stroke="#94a3b8" stroke-width="6" stroke-linecap="round" />
+    <!-- Wheels -->
+    <g transform="translate(74, 116)">
+      <circle cx="0" cy="0" r="32" fill="#1e293b" stroke="#0f172a" stroke-width="8" />
+      <circle cx="0" cy="0" r="14" fill="#38bdf8" />
+    </g>
+    <g transform="translate(248, 116)">
+      <circle cx="0" cy="0" r="32" fill="#1e293b" stroke="#0f172a" stroke-width="8" />
+      <circle cx="0" cy="0" r="14" fill="#38bdf8" />
+    </g>
+  </g>
+</svg>

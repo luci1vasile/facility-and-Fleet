@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Office Building (Left/Center) -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="8"
+        android:pathData="M110,110 h130 v200 h-130 z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M130,92 h90 v18 h-90 z" />
+    <path
+        android:fillColor="#1E3A8A"
+        android:pathData="M130,130 h24 v24 h-24 z M166,130 h24 v24 h-24 z M202,130 h24 v24 h-24 z M130,168 h24 v24 h-24 z M166,168 h24 v24 h-24 z M202,168 h24 v24 h-24 z M130,206 h24 v24 h-24 z M166,206 h24 v24 h-24 z M202,206 h24 v24 h-24 z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M156,254 h38 v56 h-38 z" />
+
+    <!-- Adjustable Wrench (Right) -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="8"
+        android:pathData="M310,140 l56,36 l-70,110 l-56,-36 z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M330,105 l60,38 l-22,34 l-60,-38 z" />
+
+    <!-- Automobile (Bottom Foreground) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="8"
+        android:pathData="M148,334 l34,-38 h106 l34,38 z" />
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="8"
+        android:pathData="M116,334 h244 v48 h-244 z" />
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M168,382 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0" />
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M308,382 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0" />
+</vector>
