@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  Search,
 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -73,6 +74,13 @@ import {
   syncStateToBackgroundDaemon,
   uploadBackupToGoogleDrive,
 } from './services/googleWorkspace';
+import {
+  DEFAULT_EMAIL_SIGNATURE,
+  DEFAULT_EMAIL_SUBJECT,
+  DEFAULT_EMAIL_TEMPLATE,
+  renderEmailHtml,
+  renderEmailSubject,
+} from './utils/emailTemplateUtils';
 
 const STORAGE_KEY = 'ffm_lucian_pop_state_v1';
 
@@ -102,6 +110,9 @@ export default function App() {
       senderEmail: 'lucian.pop88@gmail.com',
       recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
       backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+      customEmailSubject: DEFAULT_EMAIL_SUBJECT,
+      customEmailTemplate: DEFAULT_EMAIL_TEMPLATE,
+      customEmailSignature: DEFAULT_EMAIL_SIGNATURE,
     });
 
   // Navigation State
@@ -142,6 +153,7 @@ export default function App() {
   const [newVehVin, setNewVehVin] = useState<string>('');
   const [newVehUser, setNewVehUser] = useState<string>('');
   const [newVehModel, setNewVehModel] = useState<string>('');
+  const [newVehFirstRegDate, setNewVehFirstRegDate] = useState<string>('');
   const [newVehItpBaseDate, setNewVehItpBaseDate] = useState<string>(
     formatTodayISO()
   );
@@ -168,16 +180,15 @@ export default function App() {
           setProviders(parsed.providers);
         }
         if (parsed.notificationSettings) {
-          setNotificationSettings((prev) => ({
-            ...prev,
+          setNotificationSettings({
             ...parsed.notificationSettings,
             autoDailyBackup: parsed.notificationSettings.autoDailyBackup ?? true,
             notificationTimeCET:
               parsed.notificationSettings.notificationTimeCET || '09:00',
-            backupDriveEmail:
-              parsed.notificationSettings.backupDriveEmail ||
-              'facilityandfleetmaintanance@gmail.com',
-          }));
+            senderEmail: 'lucian.pop88@gmail.com',
+            recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
+            backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+          });
         }
       }
     } catch (e) {
@@ -268,8 +279,9 @@ export default function App() {
   const allInspections = useMemo<UnifiedInspectionEntry[]>(() => {
     const list: UnifiedInspectionEntry[] = [];
 
-    // 1. Building Maintenance items
+    // 1. Building Maintenance items (only include items that have an expiry date set)
     buildingItems.forEach((b) => {
+      if (!b.expiryDate || !b.expiryDate.trim()) return;
       const daysRemaining = getDaysRemaining(b.expiryDate);
       const status = getInspectionStatus(b.expiryDate);
       list.push({
@@ -277,32 +289,37 @@ export default function App() {
         sourceType: 'building',
         targetId: b.id,
         title: b.name,
-        subtitle: `${b.code} · Furnizor: ${b.assignedProvider || 'Standard'}`,
+        subtitle: b.assignedProvider ? `${b.code} · Furnizor: ${b.assignedProvider}` : b.code,
         categoryLabel: t.navBuilding,
         expiryDate: b.expiryDate,
         daysRemaining,
         status,
+        provider: b.assignedProvider || '',
       });
     });
 
-    // 2. Vehicle ITP/MOT and Vignettes
+    // 2. Vehicle ITP/MOT and Vignettes (only include items with an expiry date set and active vignettes)
     vehicles.forEach((v) => {
-      const itpDays = getDaysRemaining(v.itpExpiryDate);
-      const itpStatus = getInspectionStatus(v.itpExpiryDate);
-      list.push({
-        id: `insp-itp-${v.id}`,
-        sourceType: 'vehicle_itp',
-        targetId: v.id,
-        title: `${v.plateNumber} — ITP / MOT`,
-        subtitle: `Utilizator: ${v.userName} · ${v.makeModel}`,
-        categoryLabel: 'Autovehicule · ITP/MOT',
-        expiryDate: v.itpExpiryDate,
-        daysRemaining: itpDays,
-        status: itpStatus,
-      });
+      if (v.itpExpiryDate && v.itpExpiryDate.trim()) {
+        const itpDays = getDaysRemaining(v.itpExpiryDate);
+        const itpStatus = getInspectionStatus(v.itpExpiryDate);
+        list.push({
+          id: `insp-itp-${v.id}`,
+          sourceType: 'vehicle_itp',
+          targetId: v.id,
+          title: `${v.plateNumber} — ITP / MOT`,
+          subtitle: `Utilizator: ${v.userName} · ${v.makeModel}`,
+          categoryLabel: 'Autovehicule · ITP/MOT',
+          expiryDate: v.itpExpiryDate,
+          daysRemaining: itpDays,
+          status: itpStatus,
+          provider: v.userName,
+        });
+      }
 
       v.vignettes.forEach((vig) => {
-        if (vig.active === false) return;
+        if (vig.active === false || !vig.expiryDate || !vig.expiryDate.trim())
+          return;
         const vigDays = getDaysRemaining(vig.expiryDate);
         const vigStatus = getInspectionStatus(vig.expiryDate);
         list.push({
@@ -316,6 +333,7 @@ export default function App() {
           daysRemaining: vigDays,
           status: vigStatus,
           country: vig.country,
+          provider: v.userName,
         });
       });
     });
@@ -371,7 +389,7 @@ export default function App() {
           Notification.permission === 'granted'
         ) {
           new Notification(
-            'Notificare Automată 09:00 CET — Facility and Fleet Maintanance',
+            'Notificare Automată 09:00 CET — Facility and Fleet Maintenance',
             {
               body: `Atenție: ${overdueInspections.length} Overdue și ${dueSoonInspections.length} Due soon necesită reînnoire!`,
               icon: '/pwa-192x192.png',
@@ -382,28 +400,25 @@ export default function App() {
         // Trigger automatic email notification via auto-connected email client / Gmail
         if (notificationSettings.emailEnabled) {
           try {
-            const htmlContent = `
-              <div style="font-family: Arial, sans-serif; max-width: 650px; color: #0f172a;">
-                <h2 style="color: #dc2626;">Notificare Automată 09:00 CET - Facility and Fleet Maintanance</h2>
-                <p><strong>Expeditor:</strong> ${notificationSettings.senderEmail}<br/>
-                <strong>Destinatar:</strong> ${notificationSettings.recipientEmail}<br/>
-                <strong>Semnătura:</strong> Lucian Pop</p>
-                <hr/>
-                <p>Există <strong>${overdueInspections.length} inspecții Overdue</strong> și <strong>${dueSoonInspections.length} inspecții Due soon</strong>:</p>
-                <ul>
-                  ${urgentItems
-                    .map(
-                      (item) =>
-                        `<li><strong>${item.title}</strong> (${item.categoryLabel}) — Expiră: ${item.expiryDate} (${item.daysRemaining} zile) [${item.status.toUpperCase()}]</li>`
-                    )
-                    .join('')}
-                </ul>
-              </div>
-            `;
+            const htmlContent = renderEmailHtml({
+              template: notificationSettings.customEmailTemplate,
+              signature: notificationSettings.customEmailSignature,
+              inspections: urgentItems,
+              senderEmail: notificationSettings.senderEmail,
+              recipientEmail: notificationSettings.recipientEmail,
+              leadValue: notificationSettings.leadValue,
+              leadUnit: notificationSettings.leadUnit,
+              currentDate: cetDateISO,
+            });
+            const subject = renderEmailSubject(
+              notificationSettings.customEmailSubject,
+              urgentItems.length,
+              cetDateISO
+            );
             await sendGmailAlertEmail({
               senderEmail: notificationSettings.senderEmail,
               recipientEmail: notificationSettings.recipientEmail,
-              subject: `[09:00 CET AUTO-ALERT] ${urgentItems.length} inspecții Overdue / Due soon - Facility and Fleet Maintanance`,
+              subject,
               htmlContent,
             });
             setNotificationSettings((prev) => ({
@@ -424,7 +439,7 @@ export default function App() {
 
       // 2. Sync state to 24/7 Background Daemon & Service Worker so notifications and daily backups run even if app is closed by user
       const fullBackupPayload = {
-        appName: 'Facility and Fleet Maintanance',
+        appName: 'Facility and Fleet Maintenance',
         signature: 'Lucian Pop',
         exportedAt: new Date().toISOString(),
         lang,
@@ -567,15 +582,20 @@ export default function App() {
               baseDate,
               periodLabel,
               newExpiryDate,
+              previousExpiryDate: item.expiryDate || undefined,
+              assignedProvider: assignedProvider ?? item.assignedProvider,
+              notes: notes ?? item.notes,
             },
             ...(item.history || []),
           ],
         };
       })
     );
-    setSelectedBuildingId(null);
-    setActiveDashboardRubric(null);
-    setActivePage('dashboard');
+    if (activeDashboardRubric) {
+      setSelectedBuildingId(null);
+      setActiveDashboardRubric(null);
+      setActivePage('dashboard');
+    }
   };
 
   const handleAddBuildingElement = (e: React.FormEvent) => {
@@ -602,7 +622,7 @@ export default function App() {
       expiryDate: newExpiry,
       lastRenewedDate: formatTodayISO(),
       lastPeriodLabel: periodLabel,
-      assignedProvider: newBldgProvider.trim() || 'Facility Tech Timișoara',
+      assignedProvider: newBldgProvider.trim() || '',
       isCustom: true,
       history: [
         {
@@ -631,7 +651,8 @@ export default function App() {
     newExpiryDate: string,
     updatedUserName?: string,
     updatedPlate?: string,
-    updatedVin?: string
+    updatedVin?: string,
+    updatedFirstRegistrationDate?: string
   ) => {
     setVehicles((prev) =>
       prev.map((v) => {
@@ -644,6 +665,10 @@ export default function App() {
               ? updatedVin.trim().toUpperCase()
               : v.vinNumber,
           userName: updatedUserName?.trim() || v.userName,
+          firstRegistrationDate:
+            updatedFirstRegistrationDate !== undefined
+              ? updatedFirstRegistrationDate.trim()
+              : v.firstRegistrationDate,
           itpExpiryDate: newExpiryDate,
           itpLastRenewedDate: formatTodayISO(),
           itpPeriodYears: periodYears,
@@ -704,6 +729,32 @@ export default function App() {
     );
   };
 
+  // Reset all expiration dates across Building Maintenance, Vehicle ITP/MOT, and Vehicle Vignettes, and deactivate all vignettes
+  const handleResetAllDates = () => {
+    setBuildingItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        expiryDate: '',
+        lastRenewedDate: '',
+        lastPeriodLabel: 'Nesetat',
+        history: [],
+      }))
+    );
+    setVehicles((prev) =>
+      prev.map((veh) => ({
+        ...veh,
+        itpExpiryDate: '',
+        itpLastRenewedDate: '',
+        vignettes: veh.vignettes.map((vg) => ({
+          ...vg,
+          active: false,
+          expiryDate: '',
+          lastRenewedDate: '',
+        })),
+      }))
+    );
+  };
+
   const handleAddVehicle = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVehPlate.trim() || !newVehUser.trim()) return;
@@ -717,6 +768,7 @@ export default function App() {
       vinNumber: newVehVin.trim().toUpperCase(),
       userName: newVehUser.trim(),
       makeModel: newVehModel.trim() || 'Autoturism Flotă',
+      firstRegistrationDate: newVehFirstRegDate.trim() || undefined,
       itpExpiryDate: itpExpiry,
       itpLastRenewedDate: today,
       itpPeriodYears: newVehItpYears,
@@ -734,6 +786,7 @@ export default function App() {
     setNewVehVin('');
     setNewVehUser('');
     setNewVehModel('');
+    setNewVehFirstRegDate('');
     setActivePage('vehicles');
     setSelectedVehicleId(newVeh.id);
   };
@@ -748,16 +801,53 @@ export default function App() {
     }
   };
 
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  const [dashboardStatusFilter, setDashboardStatusFilter] = useState<
+    'all' | 'overdue' | 'due_soon' | 'ok'
+  >('all');
+
+  const filteredDashboardInspections = useMemo(() => {
+    const query = dashboardSearchQuery.trim().toLowerCase();
+    return allInspections.filter((item) => {
+      if (
+        dashboardStatusFilter !== 'all' &&
+        item.status !== dashboardStatusFilter
+      ) {
+        return false;
+      }
+      if (!query) return true;
+      const matchName = item.title.toLowerCase().includes(query);
+      const matchSubtitle = item.subtitle.toLowerCase().includes(query);
+      const matchCategory = item.categoryLabel.toLowerCase().includes(query);
+      const matchProvider = (item.provider || '').toLowerCase().includes(query);
+      return matchName || matchSubtitle || matchCategory || matchProvider;
+    });
+  }, [allInspections, dashboardSearchQuery, dashboardStatusFilter]);
+
   const activeRubricList = useMemo(() => {
-    if (activeDashboardRubric === 'overdue') return overdueInspections;
-    if (activeDashboardRubric === 'due_soon') return dueSoonInspections;
-    if (activeDashboardRubric === 'ok') return okInspections;
-    return [];
+    const baseList =
+      activeDashboardRubric === 'overdue'
+        ? overdueInspections
+        : activeDashboardRubric === 'due_soon'
+        ? dueSoonInspections
+        : activeDashboardRubric === 'ok'
+        ? okInspections
+        : [];
+    if (!dashboardSearchQuery.trim()) return baseList;
+    const query = dashboardSearchQuery.trim().toLowerCase();
+    return baseList.filter((item) => {
+      const matchName = item.title.toLowerCase().includes(query);
+      const matchSubtitle = item.subtitle.toLowerCase().includes(query);
+      const matchCategory = item.categoryLabel.toLowerCase().includes(query);
+      const matchProvider = (item.provider || '').toLowerCase().includes(query);
+      return matchName || matchSubtitle || matchCategory || matchProvider;
+    });
   }, [
     activeDashboardRubric,
     overdueInspections,
     dueSoonInspections,
     okInspections,
+    dashboardSearchQuery,
   ]);
 
   return (
@@ -796,7 +886,7 @@ export default function App() {
           >
             <AppEmblem size={34} className="w-8 h-8 sm:w-9 sm:h-9 shrink-0" />
             <span className="text-xs sm:text-base lg:text-lg font-bold tracking-tight leading-tight break-words">
-              Facility and Fleet Maintanance
+              Facility and Fleet Maintenance
             </span>
           </button>
         </div>
@@ -882,7 +972,7 @@ export default function App() {
                 <AppEmblem size={32} />
                 <div className="min-w-0">
                   <div className="text-xs font-bold leading-tight break-words">
-                    Facility and Fleet Maintanance
+                    Facility and Fleet Maintenance
                   </div>
                   <div className={`text-[11px] ${currentTheme.textMuted}`}>
                     App by Lucian Pop
@@ -959,13 +1049,15 @@ export default function App() {
                 {expandBuildingMenu && (
                   <div className="pl-4 pr-1 py-1 space-y-0.5 max-h-60 overflow-y-auto border-l border-slate-400/20 ml-4">
                     {buildingItems.map((b) => {
-                      const st = getInspectionStatus(b.expiryDate);
-                      const dotColor =
-                        st === 'overdue'
-                          ? 'text-red-500'
-                          : st === 'due_soon'
-                          ? 'text-amber-500'
-                          : 'text-emerald-500';
+                      const hasDate = Boolean(b.expiryDate && b.expiryDate.trim());
+                      const st = hasDate ? getInspectionStatus(b.expiryDate) : null;
+                      const dotColor = !hasDate
+                        ? 'text-slate-400'
+                        : st === 'overdue'
+                        ? 'text-red-500'
+                        : st === 'due_soon'
+                        ? 'text-amber-500'
+                        : 'text-emerald-500';
                       return (
                         <button
                           key={b.id}
@@ -1023,13 +1115,15 @@ export default function App() {
                 {expandVehiclesMenu && (
                   <div className="pl-4 pr-1 py-1 space-y-0.5 border-l border-slate-400/20 ml-4">
                     {vehicles.map((v) => {
-                      const st = getInspectionStatus(v.itpExpiryDate);
-                      const dotColor =
-                        st === 'overdue'
-                          ? 'text-red-500'
-                          : st === 'due_soon'
-                          ? 'text-amber-500'
-                          : 'text-emerald-500';
+                      const hasDate = Boolean(v.itpExpiryDate && v.itpExpiryDate.trim());
+                      const st = hasDate ? getInspectionStatus(v.itpExpiryDate) : null;
+                      const dotColor = !hasDate
+                        ? 'text-slate-400'
+                        : st === 'overdue'
+                        ? 'text-red-500'
+                        : st === 'due_soon'
+                        ? 'text-amber-500'
+                        : 'text-emerald-500';
                       return (
                         <button
                           key={v.id}
@@ -1142,12 +1236,8 @@ export default function App() {
                   <AppEmblem size={48} className="w-11 h-11 sm:w-12 sm:h-12 shrink-0" />
                   <div className="min-w-0">
                     <h1 className={`text-base sm:text-xl lg:text-2xl font-bold leading-snug break-words ${currentTheme.textPrimary}`}>
-                      Facility and Fleet Maintanance
+                      Facility and Fleet Maintenance
                     </h1>
-                    <p className={`text-xs ${currentTheme.textSecondary} mt-0.5`}>
-                      Monitorizare Mentenanță Clădire (27+ subcategorii), Flotă Autovehicule (ITP/MOT & Viniete) și Furnizori Timișoara ·{' '}
-                      <strong className="text-sky-500">App by Lucian Pop</strong>
-                    </p>
                   </div>
                 </div>
 
@@ -1216,22 +1306,53 @@ export default function App() {
                         <div>
                           <h2 className={`text-base sm:text-lg font-bold ${currentTheme.textPrimary}`}>
                             {activeDashboardRubric === 'overdue'
-                              ? `Listă Inspecții ${t.overdue} — Scadente în ≤ 3 zile sau expirate`
+                              ? `Listă Inspecții ${t.overdue}`
                               : activeDashboardRubric === 'due_soon'
-                              ? `Listă Inspecții ${t.dueSoon} — Scadente în 4–15 zile`
-                              : `Listă Inspecții ${t.ok} — Termen valid > 15 zile`}{' '}
+                              ? `Listă Inspecții ${t.dueSoon}`
+                              : `Listă Inspecții ${t.ok}`}{' '}
                             ({activeRubricList.length})
                           </h2>
-                          <p className={`text-xs ${currentTheme.textMuted}`}>
-                            Vizualizare listă separată pe categorie. Puteți reveni oricând la Panoul Principal fără a modifica datele de expirare.
-                          </p>
                         </div>
                       </div>
                     </div>
 
+                    {/* Search Bar inside Rubric View */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={dashboardSearchQuery}
+                        onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                        placeholder="Filtrează în această categorie după denumire sau furnizor (ex: AC, Lift, PSI, TM 22 XYZ)..."
+                        className={`w-full pl-10 pr-9 py-2.5 rounded-xl border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500`}
+                      />
+                      {dashboardSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setDashboardSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
                     {activeRubricList.length === 0 ? (
                       <div className={`py-10 text-center text-sm ${currentTheme.textMuted}`}>
-                        Nu există inspecții în această categorie în acest moment.
+                        {dashboardSearchQuery
+                          ? `Nicio inspecție nu corespunde căutării "${dashboardSearchQuery}" în această categorie.`
+                          : 'Nu există inspecții în această categorie în acest moment.'}
+                        {dashboardSearchQuery && (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              onClick={() => setDashboardSearchQuery('')}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-white hover:bg-sky-600 transition"
+                            >
+                              Resetează căutarea
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="divide-y divide-slate-200/50 dark:divide-slate-800">
@@ -1248,8 +1369,13 @@ export default function App() {
                               key={entry.id}
                               className="py-3.5 px-2 hover:bg-slate-500/5 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                             >
-                              <div className="space-y-0.5">
+                              <div className="space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
+                                  {entry.sourceType === 'building' ? (
+                                    <Building2 className="w-4 h-4 text-sky-500 shrink-0" />
+                                  ) : (
+                                    <Car className="w-4 h-4 text-emerald-500 shrink-0" />
+                                  )}
                                   <span className={`text-sm font-bold ${currentTheme.textPrimary}`}>
                                     {entry.title}
                                   </span>
@@ -1257,8 +1383,12 @@ export default function App() {
                                     · {entry.categoryLabel}
                                   </span>
                                 </div>
-                                <div className={`text-xs ${currentTheme.textSecondary}`}>
-                                  {entry.subtitle}
+                                <div className={`text-xs ${currentTheme.textSecondary} flex flex-wrap items-center gap-x-3 gap-y-1`}>
+                                  <span>{entry.subtitle}</span>
+                                  <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
+                                    <Wrench className="w-3 h-3" />
+                                    <span>Furnizor: {entry.provider || 'Standard'}</span>
+                                  </span>
                                 </div>
                               </div>
 
@@ -1318,9 +1448,6 @@ export default function App() {
                             <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse" />
                             <span>{t.overdue}</span>
                           </div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>
-                            {t.overdueDesc}
-                          </p>
                         </div>
                         <AlertTriangle className="w-8 h-8 text-red-500 shrink-0" />
                       </div>
@@ -1348,9 +1475,6 @@ export default function App() {
                             <span className="w-3 h-3 rounded-full bg-amber-400" />
                             <span>{t.dueSoon}</span>
                           </div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>
-                            {t.dueSoonDesc}
-                          </p>
                         </div>
                         <Clock className="w-8 h-8 text-amber-500 shrink-0" />
                       </div>
@@ -1378,9 +1502,6 @@ export default function App() {
                             <span className="w-3 h-3 rounded-full bg-emerald-500" />
                             <span>{t.ok}</span>
                           </div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>
-                            {t.okDesc}
-                          </p>
                         </div>
                         <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0" />
                       </div>
@@ -1420,6 +1541,189 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* MAIN DASHBOARD SEARCH BAR & UNIFIED INSPECTIONS LIST */}
+                  <div
+                    className={`p-5 rounded-2xl border ${currentTheme.borderSubtle} ${currentTheme.bgSurface} space-y-4`}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 border-slate-200/60 dark:border-slate-800">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Search className="w-5 h-5 text-sky-500 shrink-0" />
+                          <h2 className={`text-base sm:text-lg font-bold ${currentTheme.textPrimary}`}>
+                            Căutare & Filtrare Inspecții
+                          </h2>
+                          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-500">
+                            {filteredDashboardInspections.length} din {allInspections.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status Filter Buttons */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setDashboardStatusFilter('all')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                            dashboardStatusFilter === 'all'
+                              ? `${currentTheme.accentBg} text-white shadow-xs`
+                              : `border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textSecondary}`
+                          }`}
+                        >
+                          Toate ({allInspections.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDashboardStatusFilter('overdue')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                            dashboardStatusFilter === 'overdue'
+                              ? 'bg-red-600 text-white shadow-xs'
+                              : `border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} text-red-500`
+                          }`}
+                        >
+                          Overdue ({overdueInspections.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDashboardStatusFilter('due_soon')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                            dashboardStatusFilter === 'due_soon'
+                              ? 'bg-amber-500 text-slate-950 shadow-xs'
+                              : `border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} text-amber-500`
+                          }`}
+                        >
+                          Due soon ({dueSoonInspections.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDashboardStatusFilter('ok')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                            dashboardStatusFilter === 'ok'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : `border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} text-emerald-500`
+                          }`}
+                        >
+                          OK ({okInspections.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Search Bar Input */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={dashboardSearchQuery}
+                        onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                        placeholder="Căutare după nume inspecție, vehicul (ex: AC, Lift, PSI, TM 22 XYZ) sau furnizor (ex: Facility Tech, Timișoara)..."
+                        className={`w-full pl-10 pr-9 py-2.5 rounded-xl border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500`}
+                      />
+                      {dashboardSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setDashboardSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Inspection List Items */}
+                    {filteredDashboardInspections.length === 0 ? (
+                      <div className="py-10 text-center space-y-3">
+                        <div className={`text-sm ${currentTheme.textMuted}`}>
+                          Nicio inspecție nu corespunde criteriilor de căutare
+                          {dashboardSearchQuery ? ` "${dashboardSearchQuery}"` : ''}.
+                        </div>
+                        {(dashboardSearchQuery || dashboardStatusFilter !== 'all') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDashboardSearchQuery('');
+                              setDashboardStatusFilter('all');
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-white hover:bg-sky-600 transition"
+                          >
+                            Resetează filtrele de căutare
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-200/50 dark:divide-slate-800 max-h-[500px] overflow-y-auto pr-1">
+                        {filteredDashboardInspections.map((entry) => {
+                          const statusColor =
+                            entry.status === 'overdue'
+                              ? 'text-red-500'
+                              : entry.status === 'due_soon'
+                              ? 'text-amber-500'
+                              : 'text-emerald-500';
+                          const statusBadgeBg =
+                            entry.status === 'overdue'
+                              ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                              : entry.status === 'due_soon'
+                              ? 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
+
+                          return (
+                            <div
+                              key={entry.id}
+                              className="py-3 px-2 hover:bg-slate-500/5 transition rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {entry.sourceType === 'building' ? (
+                                    <Building2 className="w-4 h-4 text-sky-500 shrink-0" />
+                                  ) : (
+                                    <Car className="w-4 h-4 text-emerald-500 shrink-0" />
+                                  )}
+                                  <span className={`text-sm font-bold truncate ${currentTheme.textPrimary}`}>
+                                    {entry.title}
+                                  </span>
+                                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-500/10 text-slate-400">
+                                    {entry.categoryLabel}
+                                  </span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadgeBg}`}>
+                                    {entry.status === 'overdue' ? 'Overdue' : entry.status === 'due_soon' ? 'Due soon' : 'OK'}
+                                  </span>
+                                </div>
+                                <div className={`text-xs ${currentTheme.textSecondary} flex flex-wrap items-center gap-x-3 gap-y-1`}>
+                                  <span>{entry.subtitle}</span>
+                                  <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
+                                    <Wrench className="w-3 h-3" />
+                                    <span>Furnizor: {entry.provider || 'Standard'}</span>
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between sm:justify-end gap-3 font-mono tabular-nums shrink-0">
+                                <div className="text-left sm:text-right">
+                                  <div className={`text-xs font-bold ${currentTheme.textPrimary}`}>
+                                    Expiră: {entry.expiryDate}
+                                  </div>
+                                  <div className={`text-xs font-semibold ${statusColor}`}>
+                                    {entry.daysRemaining < 0
+                                      ? `${Math.abs(entry.daysRemaining)} ${t.daysOverdue}`
+                                      : entry.daysRemaining === 0
+                                      ? t.expiresToday
+                                      : `${entry.daysRemaining} ${t.daysRemaining}`}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleNavigateToInspection(entry)}
+                                  className={`px-3 py-1.5 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} hover:border-sky-500/60 inline-flex items-center gap-1.5 text-xs font-sans font-semibold text-sky-500 transition`}
+                                >
+                                  <span>Deschide / Reînnoiește</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Quick Navigation Cards to Main Sections */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     <div
@@ -1437,9 +1741,6 @@ export default function App() {
                       </div>
                       <div className={`text-sm font-bold ${currentTheme.textPrimary}`}>
                         {t.navBuilding}
-                      </div>
-                      <div className={`text-xs ${currentTheme.textMuted}`}>
-                        AC, PRAM, HVAC, PSI, Solar, Lift/Porți, Curățenie
                       </div>
                     </div>
 
@@ -1459,9 +1760,6 @@ export default function App() {
                       <div className={`text-sm font-bold ${currentTheme.textPrimary}`}>
                         {t.navVehicles}
                       </div>
-                      <div className={`text-xs ${currentTheme.textMuted}`}>
-                        ITP/MOT (1, 2, 3 ani) & Viniete RO, HU, SK, CZ, AT
-                      </div>
                     </div>
 
                     <div
@@ -1477,9 +1775,6 @@ export default function App() {
                       <div className={`text-sm font-bold ${currentTheme.textPrimary}`}>
                         {t.navProviders}
                       </div>
-                      <div className={`text-xs ${currentTheme.textMuted}`}>
-                        Rază 100 km Timișoara + Căutare Google Maps
-                      </div>
                     </div>
 
                     <div
@@ -1494,9 +1789,6 @@ export default function App() {
                       </div>
                       <div className={`text-sm font-bold ${currentTheme.textPrimary}`}>
                         {t.navReports}
-                      </div>
-                      <div className={`text-xs ${currentTheme.textMuted}`}>
-                        Sheet General + Categorii · Read/Write/Print
                       </div>
                     </div>
                   </div>
@@ -1592,7 +1884,7 @@ export default function App() {
               onGoogleLogout={handleGoogleLogout}
               allInspections={allInspections}
               fullBackupData={{
-                appName: 'Facility and Fleet Maintanance',
+                appName: 'Facility and Fleet Maintenance',
                 signature: 'App by Lucian Pop',
                 exportedAt: new Date().toISOString(),
                 lang,
@@ -1611,6 +1903,7 @@ export default function App() {
                 if (data?.lang) setLang(data.lang);
                 if (data?.themeId) setThemeId(data.themeId);
               }}
+              onResetAllDates={handleResetAllDates}
             />
           )}
         </main>
@@ -1621,7 +1914,7 @@ export default function App() {
         className={`py-4 px-6 border-t ${currentTheme.borderSubtle} ${currentTheme.bgSurface} text-xs ${currentTheme.textMuted} flex flex-col sm:flex-row items-center justify-between gap-2`}
       >
         <div>
-          <strong>Facility and Fleet Maintanance</strong> · Monitorizare Clădiri, Flotă Auto, Viniete & Furnizori Timișoara
+          <strong>Facility and Fleet Maintenance</strong> · Monitorizare Clădiri, Flotă Auto, Viniete & Furnizori Timișoara
         </div>
         <div className="font-semibold text-sky-500">{t.signature}</div>
       </footer>
@@ -1673,16 +1966,60 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
-                    Furnizor Alocat
-                  </label>
-                  <input
-                    type="text"
-                    value={newBldgProvider}
-                    onChange={(e) => setNewBldgProvider(e.target.value)}
-                    placeholder="Ex: AAElectric Timișoara"
-                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} text-xs`}
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`text-xs font-medium ${currentTheme.textSecondary}`}>
+                      Prestator / Furnizor Asociat
+                    </label>
+                    {newBldgProvider && (
+                      <button
+                        type="button"
+                        onClick={() => setNewBldgProvider('')}
+                        className="text-[10px] text-red-500 hover:underline cursor-pointer"
+                        title="Lasă complet gol"
+                      >
+                        Lasă gol
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <select
+                      value={
+                        providers.some((p) => p.name === newBldgProvider)
+                          ? newBldgProvider
+                          : newBldgProvider.trim() === ''
+                          ? ''
+                          : '__manual__'
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val !== '__manual__') {
+                          setNewBldgProvider(val);
+                        }
+                      }}
+                      className={`w-full px-2.5 py-1.5 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} text-xs cursor-pointer`}
+                    >
+                      <option value="">— Fără prestator (Rubrică lăsată goală) —</option>
+                      {providers.length > 0 && (
+                        <optgroup label="Selectează din lista furnizorilor:">
+                          {providers.map((p) => (
+                            <option key={p.id} value={p.name}>
+                              {p.name} ({p.category})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {newBldgProvider && !providers.some((p) => p.name === newBldgProvider) && (
+                        <option value="__manual__">Manual: {newBldgProvider}</option>
+                      )}
+                    </select>
+                    <input
+                      type="text"
+                      value={newBldgProvider}
+                      onChange={(e) => setNewBldgProvider(e.target.value)}
+                      placeholder="Sau introduceți manual (opțional)..."
+                      className={`w-full px-2.5 py-1.5 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} text-xs`}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1852,16 +2189,29 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className={`block text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
-                    Dată Calendar ITP / MOT
+                  <label className={`block text-xs font-semibold ${currentTheme.textSecondary} mb-1 flex items-center gap-1.5`}>
+                    <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                    <span>{t.firstRegistrationDate || 'Data primei înmatriculări'}</span>
                   </label>
                   <input
                     type="date"
-                    value={newVehItpBaseDate}
-                    onChange={(e) => setNewVehItpBaseDate(e.target.value)}
+                    value={newVehFirstRegDate}
+                    onChange={(e) => setNewVehFirstRegDate(e.target.value)}
                     className={`w-full px-3.5 py-2 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} font-mono text-xs`}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className={`block text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                  Dată Calendar ITP / MOT
+                </label>
+                <input
+                  type="date"
+                  value={newVehItpBaseDate}
+                  onChange={(e) => setNewVehItpBaseDate(e.target.value)}
+                  className={`w-full px-3.5 py-2 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} ${currentTheme.textPrimary} font-mono text-xs`}
+                />
               </div>
 
               <div>

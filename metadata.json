@@ -1,5 +1,5 @@
 {
-  "name": "Facility and Fleet Maintanance",
+  "name": "Facility and Fleet Maintenance",
   "description": "Aplicație completă pentru monitorizarea mentenanței clădirilor, inspecțiilor tehnice și flotei de vehicule, furnizori servicii și rapoarte.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

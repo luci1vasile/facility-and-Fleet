@@ -15,17 +15,29 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
       height={size}
       viewBox="0 0 512 512"
       className={`shrink-0 ${className}`}
-      aria-label="Facility and Fleet Maintanance Icon - Office Building, Adjustable Wrench, and Car"
+      aria-label="Facility and Fleet Maintenance Icon - Office Building, Adjustable Wrench, and Car"
     >
       <defs>
+        {/* Lighter, brighter, radiant gradient */}
         <linearGradient id="ffmBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#0f172a" />
-          <stop offset="55%" stopColor="#1e3a8a" />
-          <stop offset="100%" stopColor="#0284c7" />
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="40%" stopColor="#0284c7" />
+          <stop offset="100%" stopColor="#1d4ed8" />
+        </linearGradient>
+        <linearGradient id="ffmBuildingRoof" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#38bdf8" />
+        </linearGradient>
+        <linearGradient id="ffmCarGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="100%" stopColor="#7dd3fc" />
         </linearGradient>
       </defs>
 
+      {/* Main Rounded Shield Container */}
       <rect width="512" height="512" rx="112" fill="url(#ffmBgGrad)" />
+      
+      {/* Light Inner Highlight Rings */}
       <rect
         x="16"
         y="16"
@@ -33,9 +45,20 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
         height="480"
         rx="96"
         fill="none"
-        stroke="#38bdf8"
-        strokeOpacity="0.35"
-        strokeWidth="6"
+        stroke="#ffffff"
+        strokeOpacity="0.45"
+        strokeWidth="5"
+      />
+      <rect
+        x="24"
+        y="24"
+        width="464"
+        height="464"
+        rx="88"
+        fill="none"
+        stroke="#e0f2fe"
+        strokeOpacity="0.2"
+        strokeWidth="2"
       />
 
       {/* Office Building (Left/Center-Back) */}
@@ -46,29 +69,32 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
           width="164"
           height="268"
           rx="12"
-          fill="#f8fafc"
-          stroke="#0f172a"
-          strokeWidth="10"
+          fill="#ffffff"
+          stroke="#0369a1"
+          strokeWidth="8"
         />
-        <rect x="20" y="-22" width="124" height="26" rx="6" fill="#38bdf8" />
-        {/* Windows */}
-        <rect x="24" y="24" width="28" height="28" rx="4" fill="#1e3a8a" />
-        <rect x="68" y="24" width="28" height="28" rx="4" fill="#0284c7" />
-        <rect x="112" y="24" width="28" height="28" rx="4" fill="#1e3a8a" />
+        <rect x="20" y="-22" width="124" height="26" rx="6" fill="url(#ffmBuildingRoof)" stroke="#0369a1" strokeWidth="4" />
+        {/* Windows (Brighter, vibrant illumination) */}
+        <rect x="24" y="24" width="28" height="28" rx="5" fill="#38bdf8" />
+        <rect x="68" y="24" width="28" height="28" rx="5" fill="#7dd3fc" />
+        <rect x="112" y="24" width="28" height="28" rx="5" fill="#38bdf8" />
 
-        <rect x="24" y="68" width="28" height="28" rx="4" fill="#0284c7" />
-        <rect x="68" y="68" width="28" height="28" rx="4" fill="#1e3a8a" />
-        <rect x="112" y="68" width="28" height="28" rx="4" fill="#38bdf8" />
+        <rect x="24" y="68" width="28" height="28" rx="5" fill="#0284c7" />
+        <rect x="68" y="68" width="28" height="28" rx="5" fill="#38bdf8" />
+        <rect x="112" y="68" width="28" height="28" rx="5" fill="#7dd3fc" />
 
-        <rect x="24" y="112" width="28" height="28" rx="4" fill="#1e3a8a" />
-        <rect x="68" y="112" width="28" height="28" rx="4" fill="#38bdf8" />
-        <rect x="112" y="112" width="28" height="28" rx="4" fill="#1e3a8a" />
+        <rect x="24" y="112" width="28" height="28" rx="5" fill="#7dd3fc" />
+        <rect x="68" y="112" width="28" height="28" rx="5" fill="#38bdf8" />
+        <rect x="112" y="112" width="28" height="28" rx="5" fill="#0284c7" />
 
-        <rect x="24" y="156" width="28" height="28" rx="4" fill="#38bdf8" />
-        <rect x="68" y="156" width="28" height="28" rx="4" fill="#1e3a8a" />
-        <rect x="112" y="156" width="28" height="28" rx="4" fill="#0284c7" />
+        <rect x="24" y="156" width="28" height="28" rx="5" fill="#38bdf8" />
+        <rect x="68" y="156" width="28" height="28" rx="5" fill="#7dd3fc" />
+        <rect x="112" y="156" width="28" height="28" rx="5" fill="#38bdf8" />
 
-        <rect x="58" y="204" width="48" height="64" rx="6" fill="#0f172a" />
+        {/* Building Entrance */}
+        <rect x="58" y="204" width="48" height="64" rx="6" fill="#0284c7" stroke="#0369a1" strokeWidth="4" />
+        <rect x="64" y="210" width="16" height="52" rx="3" fill="#bae6fd" />
+        <rect x="84" y="210" width="16" height="52" rx="3" fill="#bae6fd" />
       </g>
 
       {/* Adjustable Wrench / Cheie Reglabila (Right) */}
@@ -79,27 +105,28 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
           width="44"
           height="175"
           rx="18"
-          fill="#e2e8f0"
-          stroke="#0f172a"
-          strokeWidth="10"
+          fill="#f1f5f9"
+          stroke="#0369a1"
+          strokeWidth="8"
         />
-        <rect x="-10" y="20" width="20" height="95" rx="6" fill="#94a3b8" />
-        <circle cx="0" cy="140" r="9" fill="#0f172a" />
+        <rect x="-10" y="20" width="20" height="95" rx="6" fill="#cbd5e1" />
+        <circle cx="0" cy="140" r="9" fill="#0284c7" />
+        {/* Worm gear adjustment wheel (Warm brass gold) */}
         <rect
           x="-26"
           y="-26"
           width="52"
           height="22"
           rx="6"
-          fill="#38bdf8"
-          stroke="#0f172a"
-          strokeWidth="8"
+          fill="#f59e0b"
+          stroke="#0369a1"
+          strokeWidth="6"
         />
         <path
           d="M-46,-26 C-56,-70 -30,-108 0,-112 L0,-68 L-18,-56 L-18,-36 L18,-36 L18,-56 L38,-72 C52,-46 46,-26 30,-26 Z"
-          fill="#f8fafc"
-          stroke="#0f172a"
-          strokeWidth="10"
+          fill="#ffffff"
+          stroke="#0369a1"
+          strokeWidth="8"
           strokeLinejoin="round"
         />
       </g>
@@ -111,28 +138,33 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
           cy="138"
           rx="156"
           ry="16"
-          fill="#090d16"
-          fillOpacity="0.45"
+          fill="#0284c7"
+          fillOpacity="0.3"
         />
+        {/* Car Cabin Roof & Windows */}
         <path
           d="M52,58 L92,10 C100,2 112,-2 126,-2 L202,-2 C216,-2 228,4 238,14 L274,58 Z"
-          fill="#38bdf8"
-          stroke="#0f172a"
-          strokeWidth="10"
+          fill="url(#ffmCarGlass)"
+          stroke="#0369a1"
+          strokeWidth="8"
           strokeLinejoin="round"
         />
-        <path d="M72,54 L102,14 L158,14 L158,54 Z" fill="#0f172a" />
-        <path d="M170,54 L170,14 L216,14 L250,54 Z" fill="#0f172a" />
+        {/* Window pillars */}
+        <path d="M158,10 L158,54" stroke="#0369a1" strokeWidth="6" />
+        
+        {/* Car Body (Crisp white with sky highlights) */}
         <rect
           x="8"
           y="54"
           width="308"
           height="62"
           rx="24"
-          fill="#f8fafc"
-          stroke="#0f172a"
-          strokeWidth="10"
+          fill="#ffffff"
+          stroke="#0369a1"
+          strokeWidth="8"
         />
+        
+        {/* Headlight (Warm bright gold) */}
         <rect
           x="284"
           y="68"
@@ -140,9 +172,10 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
           height="16"
           rx="6"
           fill="#facc15"
-          stroke="#0f172a"
-          strokeWidth="5"
+          stroke="#ca8a04"
+          strokeWidth="4"
         />
+        {/* Taillight (Ruby red) */}
         <rect
           x="14"
           y="68"
@@ -150,30 +183,37 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
           height="16"
           rx="5"
           fill="#ef4444"
-          stroke="#0f172a"
-          strokeWidth="5"
+          stroke="#b91c1c"
+          strokeWidth="4"
         />
+        {/* Door line */}
+        <path d="M158,58 L158,110" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <rect x="170" y="66" width="18" height="6" rx="3" fill="#0284c7" />
+
+        {/* Wheels (Lighter alloy hubs) */}
         <g transform="translate(74, 116)">
           <circle
             cx="0"
             cy="0"
             r="32"
-            fill="#1e293b"
-            stroke="#0f172a"
-            strokeWidth="10"
+            fill="#334155"
+            stroke="#0369a1"
+            strokeWidth="8"
           />
-          <circle cx="0" cy="0" r="14" fill="#38bdf8" />
+          <circle cx="0" cy="0" r="16" fill="#e2e8f0" stroke="#0369a1" strokeWidth="4" />
+          <circle cx="0" cy="0" r="6" fill="#38bdf8" />
         </g>
         <g transform="translate(248, 116)">
           <circle
             cx="0"
             cy="0"
             r="32"
-            fill="#1e293b"
-            stroke="#0f172a"
-            strokeWidth="10"
+            fill="#334155"
+            stroke="#0369a1"
+            strokeWidth="8"
           />
-          <circle cx="0" cy="0" r="14" fill="#38bdf8" />
+          <circle cx="0" cy="0" r="16" fill="#e2e8f0" stroke="#0369a1" strokeWidth="4" />
+          <circle cx="0" cy="0" r="6" fill="#38bdf8" />
         </g>
       </g>
     </svg>

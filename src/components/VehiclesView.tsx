@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Globe,
   Trash2,
+  Save,
 } from 'lucide-react';
 import {
   Language,
@@ -40,7 +41,8 @@ interface Props {
     newExpiryDate: string,
     updatedUserName?: string,
     updatedPlate?: string,
-    updatedVin?: string
+    updatedVin?: string,
+    updatedFirstRegistrationDate?: string
   ) => void;
   onRenewVignette: (
     vehicleId: string,
@@ -102,10 +104,15 @@ export const VehiclesView: React.FC<Props> = ({
 
   // Local state for ITP renewal on the vehicle's dedicated page
   const [itpBaseDate, setItpBaseDate] = useState<string>(formatTodayISO());
+  const [manualItpDate, setManualItpDate] = useState<string>(formatTodayISO());
   const [itpYears, setItpYears] = useState<1 | 2 | 3>(2);
+  const [manualItpExpiryOverride, setManualItpExpiryOverride] = useState<
+    string | null
+  >(null);
   const [editUserName, setEditUserName] = useState<string>('');
   const [editPlate, setEditPlate] = useState<string>('');
   const [editVin, setEditVin] = useState<string>('');
+  const [editFirstRegDate, setEditFirstRegDate] = useState<string>('');
   const [itpSavedToast, setItpSavedToast] = useState<boolean>(false);
 
   // Per-country vignette renewal controls
@@ -132,11 +139,18 @@ export const VehiclesView: React.FC<Props> = ({
 
   React.useEffect(() => {
     if (selectedVehicle) {
-      setItpBaseDate(formatTodayISO());
+      const initialDate =
+        selectedVehicle.itpExpiryDate && selectedVehicle.itpExpiryDate.trim()
+          ? selectedVehicle.itpExpiryDate
+          : formatTodayISO();
+      setItpBaseDate(initialDate);
+      setManualItpDate(initialDate);
       setItpYears(selectedVehicle.itpPeriodYears || 2);
+      setManualItpExpiryOverride(null);
       setEditUserName(selectedVehicle.userName);
       setEditPlate(selectedVehicle.plateNumber);
       setEditVin(selectedVehicle.vinNumber || '');
+      setEditFirstRegDate(selectedVehicle.firstRegistrationDate || '');
       setItpSavedToast(false);
       setVignetteSavedCountry(null);
       const nextDurations: Record<VignetteCountry, VignetteDurationCode> = {
@@ -154,13 +168,22 @@ export const VehiclesView: React.FC<Props> = ({
   }, [selectedVehicle]);
 
   const calculatedItpExpiry = useMemo(() => {
+    if (manualItpExpiryOverride) return manualItpExpiryOverride;
+    if (manualItpDate) return manualItpDate;
     return calculateItpExpiryDate(itpBaseDate, itpYears);
-  }, [itpBaseDate, itpYears]);
+  }, [itpBaseDate, itpYears, manualItpExpiryOverride, manualItpDate]);
 
   // Dedicated Subcategory Page for Selected Vehicle
   if (selectedVehicle) {
-    const itpDays = getDaysRemaining(selectedVehicle.itpExpiryDate);
-    const itpStatus = getInspectionStatus(selectedVehicle.itpExpiryDate);
+    const hasItpDate = Boolean(
+      selectedVehicle.itpExpiryDate && selectedVehicle.itpExpiryDate.trim()
+    );
+    const itpDays = hasItpDate
+      ? getDaysRemaining(selectedVehicle.itpExpiryDate)
+      : 0;
+    const itpStatus = hasItpDate
+      ? getInspectionStatus(selectedVehicle.itpExpiryDate)
+      : null;
     const previewItpDays = getDaysRemaining(calculatedItpExpiry);
 
     return (
@@ -216,8 +239,18 @@ export const VehiclesView: React.FC<Props> = ({
                 <h2 className={`text-2xl font-bold font-mono tabular-nums ${theme.textPrimary}`}>
                   {selectedVehicle.plateNumber}
                 </h2>
-                <div className={`text-xs font-mono ${theme.textSecondary} mt-0.5`}>
-                  {t.vinNumber}: <strong className={theme.textPrimary}>{selectedVehicle.vinNumber || '—'}</strong>
+                <div className={`text-xs font-mono ${theme.textSecondary} mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1`}>
+                  <span>
+                    {t.vinNumber}: <strong className={theme.textPrimary}>{selectedVehicle.vinNumber || '—'}</strong>
+                  </span>
+                  <span>
+                    {t.firstRegistrationDate || 'Data primei înmatriculări'}:{' '}
+                    <strong className="text-sky-500 font-semibold">
+                      {selectedVehicle.firstRegistrationDate
+                        ? `${selectedVehicle.firstRegistrationDate} (${formatDateDisplay(selectedVehicle.firstRegistrationDate, lang)})`
+                        : 'Nespecificată'}
+                    </strong>
+                  </span>
                 </div>
                 <div className={`text-sm ${theme.textSecondary} flex items-center gap-1.5 mt-0.5`}>
                   <User className="w-4 h-4 text-sky-500" />
@@ -231,7 +264,9 @@ export const VehiclesView: React.FC<Props> = ({
             {/* Current ITP/MOT Status Box */}
             <div
               className={`flex items-center gap-4 px-5 py-3.5 rounded-xl border ${
-                itpStatus === 'overdue'
+                !hasItpDate
+                  ? `${theme.borderSubtle} ${theme.bgElevated} ${theme.textSecondary}`
+                  : itpStatus === 'overdue'
                   ? 'bg-red-500/10 border-red-500/40 text-red-600 dark:text-red-400'
                   : itpStatus === 'due_soon'
                   ? 'bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400'
@@ -242,22 +277,28 @@ export const VehiclesView: React.FC<Props> = ({
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider">
                   {t.itpExpiry} ·{' '}
-                  {itpStatus === 'overdue'
+                  {!hasItpDate
+                    ? 'NESETAT'
+                    : itpStatus === 'overdue'
                     ? t.overdue
                     : itpStatus === 'due_soon'
                     ? t.dueSoon
                     : t.ok}
                 </div>
                 <div className="text-xl font-bold font-mono tabular-nums">
-                  {selectedVehicle.itpExpiryDate} ({formatDateDisplay(selectedVehicle.itpExpiryDate, lang)})
+                  {hasItpDate
+                    ? `${selectedVehicle.itpExpiryDate} (${formatDateDisplay(selectedVehicle.itpExpiryDate, lang)})`
+                    : 'Nesetat — Adăugați manual data mai jos'}
                 </div>
-                <div className="text-xs font-mono tabular-nums mt-0.5">
-                  {itpDays < 0
-                    ? `${Math.abs(itpDays)} ${t.daysOverdue}`
-                    : itpDays === 0
-                    ? t.expiresToday
-                    : `${itpDays} ${t.daysRemaining}`}
-                </div>
+                {hasItpDate && (
+                  <div className="text-xs font-mono tabular-nums mt-0.5">
+                    {itpDays < 0
+                      ? `${Math.abs(itpDays)} ${t.daysOverdue}`
+                      : itpDays === 0
+                      ? t.expiresToday
+                      : `${itpDays} ${t.daysRemaining}`}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -313,36 +354,125 @@ export const VehiclesView: React.FC<Props> = ({
                   </div>
 
                   <div>
-                    <label className={`block text-xs font-medium ${theme.textSecondary} mb-1`}>
-                      Dată Calendar ITP / MOT
+                    <label className={`block text-xs font-medium ${theme.textSecondary} mb-1 flex items-center gap-1.5`}>
+                      <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                      <span>{t.firstRegistrationDate || 'Data primei înmatriculări'}</span>
                     </label>
                     <input
                       type="date"
-                      value={itpBaseDate}
-                      onChange={(e) => setItpBaseDate(e.target.value)}
+                      value={editFirstRegDate}
+                      onChange={(e) => setEditFirstRegDate(e.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border ${theme.borderSubtle} ${theme.bgElevated} ${theme.textPrimary} font-mono text-sm`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-medium ${theme.textSecondary} mb-1 flex items-center gap-1.5`}>
+                      <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Dată Calendar ITP / MOT</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={manualItpDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setManualItpDate(val);
+                        setItpBaseDate(val);
+                        setManualItpExpiryOverride(val);
+                      }}
                       className={`w-full px-3 py-2 rounded-lg border ${theme.borderSubtle} ${theme.bgElevated} ${theme.textPrimary} font-mono text-sm`}
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Setare Directă Dată Expirare ITP / MOT (Manual) */}
+              <div className="p-4 rounded-xl border border-sky-500/40 bg-sky-500/5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="block text-xs font-bold text-sky-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Setare Directă Dată Expirare ITP / MOT (Manual)</span>
+                  </label>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={`block text-xs font-medium ${theme.textSecondary}`}>
+                    Selectați data de expirare din calendar:
+                  </label>
+                  <input
+                    type="date"
+                    value={manualItpDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setManualItpDate(val);
+                      setItpBaseDate(val);
+                      setManualItpExpiryOverride(val);
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-lg border border-sky-500/60 ${theme.bgElevated} ${theme.textPrimary} font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500`}
+                  />
+                  <div className={`p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs ${theme.textPrimary} flex flex-wrap items-center justify-between gap-2`}>
+                    <span>
+                      Data de expirare selectată din calendar:{' '}
+                      <strong className="text-sky-400 font-mono">{manualItpDate}</strong> (
+                      {formatDateDisplay(manualItpDate, lang)})
+                    </span>
+                    <span className="font-mono font-semibold text-emerald-500">
+                      {getDaysRemaining(manualItpDate) < 0
+                        ? `${Math.abs(getDaysRemaining(manualItpDate))} zile depășite (Expirat)`
+                        : `${getDaysRemaining(manualItpDate)} zile valabilitate`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Buton Salvare după funcția Setare Directă Dată Expirare ITP / MOT (Manual) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRenewItp(
+                      selectedVehicle.id,
+                      manualItpDate,
+                      itpYears,
+                      manualItpDate,
+                      editUserName,
+                      editPlate,
+                      editVin,
+                      editFirstRegDate
+                    );
+                    if (onBackToDashboard) {
+                      onBackToDashboard();
+                    } else {
+                      onSelectVehicle(null);
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                >
+                  <Save className="w-4 h-4 shrink-0" />
+                  <span>Salvare Dată Expirare ITP / MOT (Manual) & Revenire la Meniul Principal</span>
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <label className={`block text-xs font-semibold ${theme.textSecondary}`}>
-                  {t.itpRenewalPeriod} (Selectare Manuală):
+                  {t.itpRenewalPeriod} (Opțional - Calculator Valabilitate din Dată Calendar):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(
                     [
-                      { years: 1, label: t.year1, desc: 'Autoutilitare / Flotă intensivă' },
-                      { years: 2, label: t.year2, desc: 'Standard autoturisme < 12 ani' },
-                      { years: 3, label: t.year3NewCar, desc: 'Autoturism nou la prima înmatriculare' },
+                      { years: 1, label: t.year1 },
+                      { years: 2, label: t.year2 },
+                      { years: 3, label: t.year3NewCar },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.years}
                       type="button"
-                      onClick={() => setItpYears(opt.years)}
-                      className={`p-3 rounded-xl border text-left transition ${
+                      onClick={() => {
+                        setItpYears(opt.years);
+                        const calculated = calculateItpExpiryDate(itpBaseDate, opt.years);
+                        setManualItpDate(calculated);
+                        setManualItpExpiryOverride(calculated);
+                      }}
+                      className={`p-3 rounded-xl border text-center transition ${
                         itpYears === opt.years
                           ? 'border-sky-500 bg-sky-500/15 ring-2 ring-sky-500/30'
                           : `${theme.borderSubtle} ${theme.bgElevated} hover:opacity-90`
@@ -350,9 +480,6 @@ export const VehiclesView: React.FC<Props> = ({
                     >
                       <div className={`text-sm font-bold ${theme.textPrimary}`}>
                         {opt.label}
-                      </div>
-                      <div className={`text-[11px] ${theme.textMuted} mt-0.5`}>
-                        {opt.desc}
                       </div>
                     </button>
                   ))}
@@ -364,15 +491,15 @@ export const VehiclesView: React.FC<Props> = ({
             <div className="lg:col-span-5 flex flex-col justify-between p-5 rounded-xl border border-sky-500/30 bg-sky-500/5 space-y-4">
               <div className="space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-sky-500">
-                  Noua Dată de Expirare ITP / MOT Calculată
+                  Data de Expirare ITP / MOT
                 </div>
                 <div className={`text-3xl font-bold font-mono tabular-nums ${theme.textPrimary}`}>
-                  {calculatedItpExpiry}
+                  {manualItpDate}
                 </div>
                 <div className={`text-xs ${theme.textSecondary}`}>
-                  {formatDateDisplay(calculatedItpExpiry, lang)} ·{' '}
+                  {formatDateDisplay(manualItpDate, lang)} ·{' '}
                   <span className="font-mono font-semibold text-emerald-500">
-                    +{previewItpDays} {t.daysRemaining}
+                    +{getDaysRemaining(manualItpDate)} {t.daysRemaining}
                   </span>
                 </div>
               </div>
@@ -383,23 +510,24 @@ export const VehiclesView: React.FC<Props> = ({
                   onClick={() => {
                     onRenewItp(
                       selectedVehicle.id,
-                      itpBaseDate,
+                      manualItpDate,
                       itpYears,
-                      calculatedItpExpiry,
+                      manualItpDate,
                       editUserName,
                       editPlate,
-                      editVin
+                      editVin,
+                      editFirstRegDate
                     );
                     setItpSavedToast(true);
                   }}
                   className={`w-full py-3 px-4 rounded-xl font-semibold text-sm text-white ${theme.accentBg} shadow-sm transition flex items-center justify-center gap-2`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Actualizează ITP / MOT ({itpYears === 3 ? t.year3NewCar : `${itpYears} Ani`})</span>
+                  <span>Actualizează ITP / MOT ({manualItpDate})</span>
                 </button>
                 {itpSavedToast && (
                   <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-500 text-xs font-medium text-center">
-                    ITP/MOT actualizat la {calculatedItpExpiry}!
+                    ITP/MOT actualizat la {manualItpDate}!
                   </div>
                 )}
               </div>
@@ -417,17 +545,19 @@ export const VehiclesView: React.FC<Props> = ({
                 <Globe className="w-5 h-5 text-sky-500" />
                 <span>{t.vignettesTitle}</span>
               </h3>
-              <p className={`text-xs ${theme.textMuted}`}>
-                Selectați data din calendar și perioada (1 zi, 7 zile, 10 zile, 3 luni, 6 luni, 12 luni). Vinietele pentru anumite țări pot fi oprite și reactivate la nevoie (vinietele inactive nu apar în rapoarte).
-              </p>
             </div>
           </div>
 
           <div className="space-y-4">
             {selectedVehicle.vignettes.map((vig) => {
               const isActive = vig.active !== false;
-              const vigDays = getDaysRemaining(vig.expiryDate);
-              const vigStatus = getInspectionStatus(vig.expiryDate);
+              const hasVigDate = Boolean(
+                vig.expiryDate && vig.expiryDate.trim()
+              );
+              const vigDays = hasVigDate ? getDaysRemaining(vig.expiryDate) : 0;
+              const vigStatus = hasVigDate
+                ? getInspectionStatus(vig.expiryDate)
+                : null;
               const selectedBase =
                 vignetteBaseDates[vig.country] || formatTodayISO();
               const selectedDur =
@@ -437,21 +567,23 @@ export const VehiclesView: React.FC<Props> = ({
                 selectedDur
               );
 
-              const rowBorder = !isActive
-                ? 'border-l-4 border-l-slate-400 dark:border-l-slate-600 opacity-75'
-                : vigStatus === 'overdue'
-                ? 'border-l-4 border-l-red-600'
-                : vigStatus === 'due_soon'
-                ? 'border-l-4 border-l-amber-500'
-                : 'border-l-4 border-l-emerald-600';
+              const rowBorder =
+                !isActive || !hasVigDate
+                  ? 'border-l-4 border-l-slate-400 dark:border-l-slate-600 opacity-85'
+                  : vigStatus === 'overdue'
+                  ? 'border-l-4 border-l-red-600'
+                  : vigStatus === 'due_soon'
+                  ? 'border-l-4 border-l-amber-500'
+                  : 'border-l-4 border-l-emerald-600';
 
-              const statusColor = !isActive
-                ? theme.textMuted
-                : vigStatus === 'overdue'
-                ? 'text-red-600 dark:text-red-400'
-                : vigStatus === 'due_soon'
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-emerald-600 dark:text-emerald-400';
+              const statusColor =
+                !isActive || !hasVigDate
+                  ? theme.textMuted
+                  : vigStatus === 'overdue'
+                  ? 'text-red-600 dark:text-red-400'
+                  : vigStatus === 'due_soon'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-emerald-600 dark:text-emerald-400';
 
               return (
                 <div
@@ -467,12 +599,13 @@ export const VehiclesView: React.FC<Props> = ({
                         </span>
                         {isActive ? (
                           <span className={`text-xs font-bold font-mono ${statusColor}`}>
-                            ●{' '}
-                            {vigStatus === 'overdue'
-                              ? t.overdue
+                            {!hasVigDate
+                              ? '○ Nesetat'
+                              : vigStatus === 'overdue'
+                              ? `● ${t.overdue}`
                               : vigStatus === 'due_soon'
-                              ? t.dueSoon
-                              : t.ok}
+                              ? `● ${t.dueSoon}`
+                              : `● ${t.ok}`}
                           </span>
                         ) : (
                           <span
@@ -484,16 +617,22 @@ export const VehiclesView: React.FC<Props> = ({
                       </div>
 
                       {isActive ? (
-                        <div className={`text-xs ${theme.textSecondary} font-mono tabular-nums`}>
-                          Expiră la: <strong className="text-sm">{vig.expiryDate}</strong> ·{' '}
-                          <span className={statusColor}>
-                            {vigDays < 0
-                              ? `${Math.abs(vigDays)} ${t.daysOverdue}`
-                              : vigDays === 0
-                              ? t.expiresToday
-                              : `${vigDays} ${t.daysRemaining}`}
-                          </span>
-                        </div>
+                        hasVigDate ? (
+                          <div className={`text-xs ${theme.textSecondary} font-mono tabular-nums`}>
+                            Expiră la: <strong className="text-sm">{vig.expiryDate}</strong> ·{' '}
+                            <span className={statusColor}>
+                              {vigDays < 0
+                                ? `${Math.abs(vigDays)} ${t.daysOverdue}`
+                                : vigDays === 0
+                                ? t.expiresToday
+                                : `${vigDays} ${t.daysRemaining}`}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className={`text-xs ${theme.textMuted}`}>
+                            Dată expirare nesetată — selectați data și apăsați {t.extendVignette}.
+                          </div>
+                        )
                       ) : (
                         <div className={`text-xs ${theme.textMuted}`}>
                           Vinietă oprită — exclusă din alerte și din rapoarte.
@@ -626,9 +765,6 @@ export const VehiclesView: React.FC<Props> = ({
             <Car className="w-6 h-6 text-sky-500" />
             <span>{t.navVehicles} ({vehicles.length} Autoturisme în Flotă)</span>
           </h2>
-          <p className={`text-xs ${theme.textMuted} mt-0.5`}>
-            Fiecare autoturism are subcategorie și pagină proprie pentru ITP/MOT (1, 2, 3 ani) și Viniete (România, Ungaria, Slovacia, Cehia, Austria).
-          </p>
         </div>
 
         <button
@@ -643,15 +779,21 @@ export const VehiclesView: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {vehicles.map((veh) => {
-          const itpDays = getDaysRemaining(veh.itpExpiryDate);
-          const itpStatus = getInspectionStatus(veh.itpExpiryDate);
+          const hasItpDate = Boolean(
+            veh.itpExpiryDate && veh.itpExpiryDate.trim()
+          );
+          const itpDays = hasItpDate ? getDaysRemaining(veh.itpExpiryDate) : 0;
+          const itpStatus = hasItpDate
+            ? getInspectionStatus(veh.itpExpiryDate)
+            : null;
 
-          const cardBorder =
-            itpStatus === 'overdue'
-              ? 'border-l-4 border-l-red-600'
-              : itpStatus === 'due_soon'
-              ? 'border-l-4 border-l-amber-500'
-              : 'border-l-4 border-l-emerald-600';
+          const cardBorder = !hasItpDate
+            ? 'border-l-4 border-l-slate-400 dark:border-l-slate-600'
+            : itpStatus === 'overdue'
+            ? 'border-l-4 border-l-red-600'
+            : itpStatus === 'due_soon'
+            ? 'border-l-4 border-l-amber-500'
+            : 'border-l-4 border-l-emerald-600';
 
           return (
             <div
@@ -675,25 +817,34 @@ export const VehiclesView: React.FC<Props> = ({
                       VIN: {veh.vinNumber}
                     </div>
                   )}
-                  <div className={`text-xs ${theme.textMuted} mt-0.5`}>
-                    {veh.makeModel}
+                  <div className={`text-xs ${theme.textMuted} mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5`}>
+                    <span>{veh.makeModel}</span>
+                    {veh.firstRegistrationDate && (
+                      <span className="font-mono text-sky-500 font-medium">
+                        · Prima înmatr.: {veh.firstRegistrationDate}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="text-right font-mono tabular-nums">
                   <div
                     className={`text-xs font-bold ${
-                      itpStatus === 'overdue'
+                      !hasItpDate
+                        ? theme.textMuted
+                        : itpStatus === 'overdue'
                         ? 'text-red-600 dark:text-red-400'
                         : itpStatus === 'due_soon'
                         ? 'text-amber-600 dark:text-amber-400'
                         : 'text-emerald-600 dark:text-emerald-400'
                     }`}
                   >
-                    ITP: {veh.itpExpiryDate}
+                    ITP: {hasItpDate ? veh.itpExpiryDate : 'Nesetat'}
                   </div>
                   <div className={`text-[11px] ${theme.textMuted}`}>
-                    {itpDays < 0
+                    {!hasItpDate
+                      ? 'Adaugă manual'
+                      : itpDays < 0
                       ? `${Math.abs(itpDays)} ${t.daysOverdue}`
                       : `${itpDays} ${t.daysRemaining}`}
                   </div>
@@ -708,8 +859,15 @@ export const VehiclesView: React.FC<Props> = ({
                 <div className="grid grid-cols-5 gap-1.5">
                   {veh.vignettes.map((vg) => {
                     const isActive = vg.active !== false;
-                    const st = getInspectionStatus(vg.expiryDate);
-                    const days = getDaysRemaining(vg.expiryDate);
+                    const hasVgDate = Boolean(
+                      vg.expiryDate && vg.expiryDate.trim()
+                    );
+                    const st = hasVgDate
+                      ? getInspectionStatus(vg.expiryDate)
+                      : null;
+                    const days = hasVgDate
+                      ? getDaysRemaining(vg.expiryDate)
+                      : 0;
                     return (
                       <div
                         key={vg.country}
@@ -721,17 +879,23 @@ export const VehiclesView: React.FC<Props> = ({
                           {vg.country}
                         </div>
                         {isActive ? (
-                          <div
-                            className={`text-[10px] font-mono font-bold tabular-nums ${
-                              st === 'overdue'
-                                ? 'text-red-500'
-                                : st === 'due_soon'
-                                ? 'text-amber-500'
-                                : 'text-emerald-500'
-                            }`}
-                          >
-                            {days}z
-                          </div>
+                          hasVgDate ? (
+                            <div
+                              className={`text-[10px] font-mono font-bold tabular-nums ${
+                                st === 'overdue'
+                                  ? 'text-red-500'
+                                  : st === 'due_soon'
+                                  ? 'text-amber-500'
+                                  : 'text-emerald-500'
+                              }`}
+                            >
+                              {days}z
+                            </div>
+                          ) : (
+                            <div className={`text-[10px] font-mono ${theme.textMuted}`}>
+                              Nesetat
+                            </div>
+                          )
                         ) : (
                           <div className={`text-[10px] font-mono ${theme.textMuted}`}>
                             Oprită

@@ -197,16 +197,17 @@ export async function createExcelWorkbookBuffer(params: {
   ];
 
   buildingItems.forEach((b) => {
-    const days = getDaysRemaining(b.expiryDate);
-    const st = getInspectionStatus(b.expiryDate);
+    const hasDate = Boolean(b.expiryDate && b.expiryDate.trim());
+    const days = hasDate ? getDaysRemaining(b.expiryDate) : '-';
+    const st = hasDate ? statusText(getInspectionStatus(b.expiryDate)) : 'NESETAT';
     buildingRows.push([
       b.code,
       b.name,
-      b.expiryDate,
+      hasDate ? b.expiryDate : 'Nesetat',
       days,
-      statusText(st),
-      b.lastRenewedDate,
-      b.lastPeriodLabel,
+      st,
+      b.lastRenewedDate || '-',
+      b.lastPeriodLabel || '-',
       b.assignedProvider || '-',
       b.notes || '-',
     ]);
@@ -230,18 +231,19 @@ export async function createExcelWorkbookBuffer(params: {
   ];
 
   vehicles.forEach((v) => {
-    const days = getDaysRemaining(v.itpExpiryDate);
-    const st = getInspectionStatus(v.itpExpiryDate);
+    const hasDate = Boolean(v.itpExpiryDate && v.itpExpiryDate.trim());
+    const days = hasDate ? getDaysRemaining(v.itpExpiryDate) : '-';
+    const st = hasDate ? statusText(getInspectionStatus(v.itpExpiryDate)) : 'NESETAT';
     vehicleRows.push([
       v.plateNumber,
       v.vinNumber || '-',
       v.userName,
       v.makeModel,
-      v.itpExpiryDate,
+      hasDate ? v.itpExpiryDate : 'Nesetat',
       days,
-      statusText(st),
+      st,
       v.itpPeriodYears === 3 ? '3 Ani (Mașină Nouă)' : `${v.itpPeriodYears} Ani`,
-      v.itpLastRenewedDate,
+      v.itpLastRenewedDate || '-',
     ]);
   });
 
@@ -264,17 +266,18 @@ export async function createExcelWorkbookBuffer(params: {
   vehicles.forEach((v) => {
     v.vignettes.forEach((vig) => {
       if (vig.active === false) return;
-      const days = getDaysRemaining(vig.expiryDate);
-      const st = getInspectionStatus(vig.expiryDate);
+      const hasDate = Boolean(vig.expiryDate && vig.expiryDate.trim());
+      const days = hasDate ? getDaysRemaining(vig.expiryDate) : '-';
+      const st = hasDate ? statusText(getInspectionStatus(vig.expiryDate)) : 'NESETAT';
       vignetteRows.push([
         v.plateNumber,
         v.userName,
         vig.country,
-        vig.expiryDate,
+        hasDate ? vig.expiryDate : 'Nesetat',
         days,
-        statusText(st),
+        st,
         vig.lastDurationCode,
-        vig.lastRenewedDate,
+        vig.lastRenewedDate || '-',
       ]);
     });
   });
@@ -454,15 +457,16 @@ export function createPdfReportBlob(params: {
     startY: 35,
     head: [['Cod', 'Subcategorie Mentenanta', 'Data Expirarii', 'Zile Ramase', 'Status', 'Perioada', 'Furnizor']],
     body: buildingItems.map((b) => {
-      const days = getDaysRemaining(b.expiryDate);
-      const st = getInspectionStatus(b.expiryDate);
+      const hasDate = Boolean(b.expiryDate && b.expiryDate.trim());
+      const days = hasDate ? String(getDaysRemaining(b.expiryDate)) : '-';
+      const st = hasDate ? statusText(getInspectionStatus(b.expiryDate)) : 'NESETAT';
       return [
         b.code,
         b.name,
-        b.expiryDate,
-        String(days),
-        statusText(st),
-        b.lastPeriodLabel,
+        hasDate ? b.expiryDate : 'Nesetat',
+        days,
+        st,
+        b.lastPeriodLabel || '-',
         b.assignedProvider || '-',
       ];
     }),
@@ -493,21 +497,26 @@ export function createPdfReportBlob(params: {
 
   const vehicleAndVignetteRows: string[][] = [];
   vehicles.forEach((v) => {
-    const itpDays = getDaysRemaining(v.itpExpiryDate);
-    const itpSt = getInspectionStatus(v.itpExpiryDate);
+    const hasItp = Boolean(v.itpExpiryDate && v.itpExpiryDate.trim());
+    const itpDays = hasItp ? getDaysRemaining(v.itpExpiryDate) : 0;
+    const itpSt = hasItp ? statusText(getInspectionStatus(v.itpExpiryDate)) : 'NESETAT';
     const activeVignettes = v.vignettes.filter((vg) => vg.active !== false);
     const vigSummary =
       activeVignettes.length > 0
         ? activeVignettes
-            .map((vg) => `${vg.country}: ${vg.expiryDate} (${getDaysRemaining(vg.expiryDate)}z)`)
+            .map((vg) =>
+              vg.expiryDate
+                ? `${vg.country}: ${vg.expiryDate} (${getDaysRemaining(vg.expiryDate)}z)`
+                : `${vg.country}: Nesetat`
+            )
             .join(' | ')
         : '-';
     vehicleAndVignetteRows.push([
       v.plateNumber,
       v.userName,
       v.makeModel,
-      `${v.itpExpiryDate} (${itpDays}z)`,
-      statusText(itpSt),
+      hasItp ? `${v.itpExpiryDate} (${itpDays}z)` : 'Nesetat',
+      itpSt,
       vigSummary,
     ]);
   });
@@ -543,6 +552,111 @@ export function createPdfReportBlob(params: {
   const blob = doc.output('blob');
   const fileName = `Facility_and_Fleet_Maintanance_${formatTodayISO()}.pdf`;
   return { blob, fileName };
+}
+
+/**
+ * Generates a complete, downloadable CSV file for all inspections
+ * (Building Maintenance, Fleet Vehicle ITP/MOT, and Road Vignettes) using the 'xlsx' library.
+ */
+export function createInspectionsCsvBlob(params: {
+  buildingItems: BuildingMaintenanceItem[];
+  vehicles: VehicleItem[];
+  allInspections?: UnifiedInspectionEntry[];
+  lang?: Language;
+}): { blob: Blob; fileName: string; totalRecords: number } {
+  const { buildingItems, vehicles, lang = 'ro' } = params;
+  const fileName = `Facility_and_Fleet_Inspections_${formatTodayISO()}.csv`;
+
+  const rows: (string | number)[][] = [
+    [
+      'Nr. Crt.',
+      'Categorie / Tip Inspecție',
+      'Cod / Identificator',
+      'Denumire Element / Nr. Înmatriculare',
+      'Responsabil / Utilizator / Model',
+      'Furnizor / Prestator Servicii',
+      'Data Expirării',
+      'Zile Rămase',
+      'Status Termen',
+      'Ultima Reînnoire',
+      'Detalii / Perioadă / Observații',
+    ],
+  ];
+
+  let counter = 1;
+
+  // 1. Mentenanță Clădire (Building Maintenance)
+  buildingItems.forEach((b) => {
+    const hasDate = Boolean(b.expiryDate && b.expiryDate.trim());
+    const days = hasDate ? getDaysRemaining(b.expiryDate) : '';
+    const st = hasDate ? statusText(getInspectionStatus(b.expiryDate)) : 'NESETAT';
+    rows.push([
+      counter++,
+      'Mentenanță Clădire',
+      b.code,
+      b.name,
+      'Administrator / Tehnic',
+      b.assignedProvider || 'Standard',
+      hasDate ? b.expiryDate : 'Nesetat',
+      hasDate ? days : '',
+      st,
+      b.lastRenewedDate || '-',
+      b.notes || (b.lastPeriodLabel ? `Perioadă: ${b.lastPeriodLabel}` : '-'),
+    ]);
+  });
+
+  // 2. Autovehicule ITP / MOT (Fleet Vehicles ITP)
+  vehicles.forEach((v) => {
+    const hasItp = Boolean(v.itpExpiryDate && v.itpExpiryDate.trim());
+    const days = hasItp ? getDaysRemaining(v.itpExpiryDate) : '';
+    const st = hasItp ? statusText(getInspectionStatus(v.itpExpiryDate)) : 'NESETAT';
+    rows.push([
+      counter++,
+      'Autovehicule · ITP / MOT',
+      v.vinNumber || '-',
+      v.plateNumber,
+      `${v.userName} (${v.makeModel})`,
+      'Stație ITP Autorizată RAR',
+      hasItp ? v.itpExpiryDate : 'Nesetat',
+      hasItp ? days : '',
+      st,
+      v.itpLastRenewedDate || '-',
+      v.itpPeriodYears ? `Valabilitate: ${v.itpPeriodYears} ani` : '-',
+    ]);
+  });
+
+  // 3. Viniete de Drum (Fleet Vehicle Vignettes)
+  vehicles.forEach((v) => {
+    v.vignettes.forEach((vg) => {
+      const hasVig = Boolean(vg.expiryDate && vg.expiryDate.trim());
+      const days = hasVig ? getDaysRemaining(vg.expiryDate) : '';
+      const st = hasVig ? statusText(getInspectionStatus(vg.expiryDate)) : 'NESETAT';
+      rows.push([
+        counter++,
+        `Vinietă Drum (${vg.country})`,
+        vg.country,
+        `${v.plateNumber} [${vg.country}]`,
+        `${v.userName} (${v.makeModel})`,
+        `Operator Drumuri / Taxare ${vg.country}`,
+        hasVig ? vg.expiryDate : 'Nesetat',
+        hasVig ? days : '',
+        st,
+        vg.lastRenewedDate || '-',
+        vg.active === false ? 'Inactivă' : `Durată: ${vg.lastDurationCode || '12m'}`,
+      ]);
+    });
+  });
+
+  // Convert array of arrays to sheet and then to CSV string via SheetJS XLSX
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const csvString = XLSX.utils.sheet_to_csv(worksheet);
+
+  // Add UTF-8 BOM so Excel opens Romanian diacritics (ă, î, ș, ț, â) cleanly
+  const blob = new Blob(['\uFEFF' + csvString], {
+    type: 'text/csv;charset=utf-8;',
+  });
+
+  return { blob, fileName, totalRecords: counter - 1 };
 }
 
 /**

@@ -24,6 +24,9 @@ export interface RenewalRecord {
   baseDate: string;
   periodLabel: string;
   newExpiryDate: string;
+  previousExpiryDate?: string;
+  assignedProvider?: string;
+  notes?: string;
 }
 
 export interface BuildingMaintenanceItem {
@@ -62,6 +65,7 @@ export interface VehicleItem {
   vinNumber?: string;
   userName: string;
   makeModel: string;
+  firstRegistrationDate?: string; // YYYY-MM-DD
   itpExpiryDate: string; // YYYY-MM-DD
   itpLastRenewedDate: string; // YYYY-MM-DD
   itpPeriodYears: 1 | 2 | 3;
@@ -108,6 +112,9 @@ export interface NotificationSettings {
   backupDriveEmail: string;
   lastEmailSentAt?: string;
   lastBackupAt?: string;
+  customEmailSubject?: string;
+  customEmailTemplate?: string;
+  customEmailSignature?: string;
 }
 
 export interface UnifiedInspectionEntry {
@@ -121,4 +128,5 @@ export interface UnifiedInspectionEntry {
   daysRemaining: number;
   status: InspectionStatus;
   country?: VignetteCountry;
+  provider?: string;
 }

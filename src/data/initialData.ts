@@ -10,18 +10,18 @@ export const BUILDING_SUBCATEGORIES: string[] = [
   'AC cleaning',
   'Cleaning Service',
   'Windows Cleaning',
-  'Coffee Machine Maintanance',
+  'Coffee Machine Maintenance',
   'Electrical Inspection (PRAM TEST)',
   'Garbage Disposal',
-  'Camera System Maintanance',
-  'HVAC Maintanance',
+  'Camera System Maintenance',
+  'HVAC Maintenance',
   'Security/ Intercom',
   'Doors Inspection',
   'Windows Inspection',
   'Emergency Lights inspection',
   'Fire Instalation Inspection',
-  'Card Access Maintanance',
-  'Doors Maintanance',
+  'Card Access Maintenance',
+  'Doors Maintenance',
   'EV Chargers',
   'Septic Tank Cleaning',
   'Grease Trap Inspection',
@@ -29,8 +29,8 @@ export const BUILDING_SUBCATEGORIES: string[] = [
   'Fence Inspection',
   'Lighting Inspection',
   'Lighting Conductor',
-  'Gates Maintanance',
-  'Roof Maintanance',
+  'Gates Maintenance',
+  'Roof Maintenance',
   'Rain Water Drainage Cleaning',
   'Solar Panels Inspection',
   'Solar Panel Cleaning',
@@ -50,18 +50,18 @@ export function createInitialBuildingItems(): BuildingMaintenanceItem[] {
     1,   // AC cleaning -> Overdue (1 day left)
     18,  // Cleaning Service -> OK
     7,   // Windows Cleaning -> Due soon (7 days)
-    2,   // Coffee Machine Maintanance -> Overdue (2 days left)
+    2,   // Coffee Machine Maintenance -> Overdue (2 days left)
     -1,  // Electrical Inspection (PRAM TEST) -> Overdue (expired 1 day ago)
     12,  // Garbage Disposal -> Due soon
-    45,  // Camera System Maintanance -> OK
-    9,   // HVAC Maintanance -> Due soon
+    45,  // Camera System Maintenance -> OK
+    9,   // HVAC Maintenance -> Due soon
     90,  // Security/ Intercom -> OK
     60,  // Doors Inspection -> OK
     110, // Windows Inspection -> OK
     3,   // Emergency Lights inspection -> Overdue (3 days left)
     14,  // Fire Instalation Inspection -> Due soon
-    120, // Card Access Maintanance -> OK
-    85,  // Doors Maintanance -> OK
+    120, // Card Access Maintenance -> OK
+    85,  // Doors Maintenance -> OK
     6,   // EV Chargers -> Due soon
     30,  // Septic Tank Cleaning -> OK
     11,  // Grease Trap Inspection -> Due soon
@@ -69,34 +69,20 @@ export function createInitialBuildingItems(): BuildingMaintenanceItem[] {
     180, // Fence Inspection -> OK
     75,  // Lighting Inspection -> OK
     0,   // Lighting Conductor -> Overdue (due today)
-    40,  // Gates Maintanance -> OK
-    150, // Roof Maintanance -> OK
+    40,  // Gates Maintenance -> OK
+    150, // Roof Maintenance -> OK
     15,  // Rain Water Drainage Cleaning -> Due soon
     210, // Solar Panels Inspection -> OK
     35,  // Solar Panel Cleaning -> OK
   ];
-
-  const defaultProviders: Record<string, string> = {
-    'Electrical Inspection (PRAM TEST)': 'AAElectric',
-    'Lighting Conductor': 'AAElectric',
-    'Lighting Inspection': 'AAElectric',
-    'EV Chargers': 'AAElectric',
-    'AC cleaning': 'ClimaVest HVAC Timișoara',
-    'HVAC Maintanance': 'ClimaVest HVAC Timișoara',
-    'Fire Instalation Inspection': 'StingProt PSI Timișoara',
-    'Emergency Lights inspection': 'StingProt PSI Timișoara',
-    'Camera System Maintanance': 'BanatSecuritate & Interfon',
-    'Security/ Intercom': 'BanatSecuritate & Interfon',
-    'Card Access Maintanance': 'BanatSecuritate & Interfon',
-    'Solar Panels Inspection': 'SolarBanat Energy Timișoara',
-    'Solar Panel Cleaning': 'SolarBanat Energy Timișoara',
-  };
 
   const today = formatTodayISO();
 
   return BUILDING_SUBCATEGORIES.map((name, idx) => {
     const offset = offsets[idx % offsets.length];
     const expiryDate = addDaysToTodayISO(offset);
+    // Nu se completeaza automat rubrica Prestator / Furnizor Asociat
+    const assigned = '';
     return {
       id: `bldg-${idx + 1}`,
       code: `BM-${String(idx + 1).padStart(2, '0')}`,
@@ -104,7 +90,7 @@ export function createInitialBuildingItems(): BuildingMaintenanceItem[] {
       expiryDate,
       lastRenewedDate: today,
       lastPeriodLabel: '6 luni',
-      assignedProvider: defaultProviders[name] || 'Facility Tech Timișoara',
+      assignedProvider: assigned,
       notes: `Monitorizare periodică conform planului tehnic pentru ${name}.`,
       history: [
         {
@@ -113,6 +99,8 @@ export function createInitialBuildingItems(): BuildingMaintenanceItem[] {
           baseDate: today,
           periodLabel: '6 luni',
           newExpiryDate: expiryDate,
+          assignedProvider: assigned,
+          notes: `Revizie și monitorizare conform planului de mentenanță preventivă pentru ${name}.`,
         },
       ],
     };
@@ -128,6 +116,7 @@ export function createInitialVehicles(): VehicleItem[] {
       vinNumber: 'W1N1671191A482910',
       userName: 'Lucian Pop',
       makeModel: 'Mercedes-Benz GLE 300d 4MATIC',
+      firstRegistrationDate: '2021-03-15',
       itpExpiryDate: addDaysToTodayISO(140),
       itpLastRenewedDate: today,
       itpPeriodYears: 2,
@@ -145,6 +134,7 @@ export function createInitialVehicles(): VehicleItem[] {
       vinNumber: 'YV1UZK5VCL1529384',
       userName: 'Alexandru Munteanu',
       makeModel: 'Volvo XC60 B4 AWD',
+      firstRegistrationDate: '2020-07-22',
       itpExpiryDate: addDaysToTodayISO(2), // Overdue (<= 3 days)
       itpLastRenewedDate: today,
       itpPeriodYears: 2,
@@ -162,6 +152,7 @@ export function createInitialVehicles(): VehicleItem[] {
       vinNumber: 'UU1DJF00869284715',
       userName: 'Cristian Vasilescu',
       makeModel: 'Dacia Duster Extreme 4x4 (Mașină Nouă)',
+      firstRegistrationDate: '2023-11-10',
       itpExpiryDate: addDaysToTodayISO(680),
       itpLastRenewedDate: today,
       itpPeriodYears: 3,
@@ -179,6 +170,7 @@ export function createInitialVehicles(): VehicleItem[] {
       vinNumber: 'VF3YCBMFC12948371',
       userName: 'Mihai Radu',
       makeModel: 'Peugeot Boxer Autoutilitară',
+      firstRegistrationDate: '2019-05-18',
       itpExpiryDate: addDaysToTodayISO(10), // Due soon
       itpLastRenewedDate: today,
       itpPeriodYears: 1,
@@ -196,6 +188,7 @@ export function createInitialVehicles(): VehicleItem[] {
       vinNumber: 'YV2RT40A8LA847291',
       userName: 'Sorin Ionescu',
       makeModel: 'Volvo FH 500 / Scania R450 Fleet',
+      firstRegistrationDate: '2018-09-04',
       itpExpiryDate: addDaysToTodayISO(85),
       itpLastRenewedDate: today,
       itpPeriodYears: 1,
@@ -464,7 +457,7 @@ export const INITIAL_PROVIDERS: ServiceProvider[] = [
     id: 'prov-20',
     name: 'ClimaVest HVAC Timișoara',
     category: 'Mentenanță Clădiri & HVAC',
-    activityDomain: 'HVAC Maintanance, AC cleaning, centrale ventilație și chiller clădiri de birouri',
+    activityDomain: 'HVAC Maintenance, AC cleaning, centrale ventilație și chiller clădiri de birouri',
     phone: '+40 256 491 220',
     email: 'service@climavest-tm.ro',
     address: 'Str. Polonă nr. 4, Timișoara, Jud. Timiș',
@@ -488,7 +481,7 @@ export const INITIAL_PROVIDERS: ServiceProvider[] = [
     id: 'prov-22',
     name: 'BanatSecuritate & Interfon',
     category: 'Sisteme Securitate & PSI',
-    activityDomain: 'Camera System Maintanance, Security/ Intercom, Card Access Maintanance și porți automatizate',
+    activityDomain: 'Camera System Maintenance, Security/ Intercom, Card Access Maintenance și porți automatizate',
     phone: '+40 728 990 112',
     email: 'suport@banatsecuritate.ro',
     address: 'Calea Aradului nr. 48, Timișoara, Jud. Timiș',
@@ -512,7 +505,7 @@ export const INITIAL_PROVIDERS: ServiceProvider[] = [
     id: 'prov-24',
     name: 'SolarBanat & RoofTech Lugoj',
     category: 'Panouri Solare & Acoperiș',
-    activityDomain: 'Solar Panels Inspection, Solar Panel Cleaning, Roof Maintanance și Rain Water Drainage Cleaning',
+    activityDomain: 'Solar Panels Inspection, Solar Panel Cleaning, Roof Maintenance și Rain Water Drainage Cleaning',
     phone: '+40 256 351 780',
     email: 'office@solarbanat.ro',
     address: 'Str. Timișorii nr. 112, Lugoj, Jud. Timiș',

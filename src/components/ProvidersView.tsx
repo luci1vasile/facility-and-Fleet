@@ -287,9 +287,6 @@ export const ProvidersView: React.FC<Props> = ({
             <MapPin className="w-6 h-6 text-sky-500" />
             <span>{t.navProviders} ({providers.length} Furnizori)</span>
           </h2>
-          <p className={`text-xs ${theme.textMuted} mt-0.5`}>
-            {t.providersSubtitle} · Include service-uri auto, stații ITP/MOT și firme de mentenanță clădire.
-          </p>
         </div>
 
         <button
@@ -455,11 +452,6 @@ export const ProvidersView: React.FC<Props> = ({
                     ? 'Editare Furnizor de Servicii'
                     : 'Adăugare Furnizor de Servicii Nou'}
                 </h3>
-                <p className={`text-xs ${theme.textMuted}`}>
-                  {editingProviderId
-                    ? 'Modificați datele furnizorului sau actualizați automat prin Google și Google Maps.'
-                    : 'Scrieți numele furnizorului și aplicația va căuta automat prin Google și Google Maps detaliile de contact, adresa și locația.'}
-                </p>
               </div>
               <button
                 type="button"

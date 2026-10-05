@@ -877,3 +877,165 @@ export async function downloadBackupFromGoogleDrive(
 
   throw new Error('Fișierul de backup nu a putut fi citit.');
 }
+
+export const PRIMARY_WEB_APP_URL =
+  'https://ais-pre-bgqmzn7yfx5riclt37gyqk-921075613013.europe-west2.run.app';
+
+export function getResolvedWebAppUrl(): string {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.origin &&
+    !window.location.origin.includes('androidplatform.net') &&
+    !window.location.origin.startsWith('file:')
+  ) {
+    return window.location.origin;
+  }
+  return PRIMARY_WEB_APP_URL;
+}
+
+/**
+ * Creates and uploads a web app launcher / internet shortcut to Google Drive
+ * so the application can be opened directly from Google Drive in any web browser.
+ */
+export async function saveWebAppLauncherToGoogleDrive(
+  targetAccountHint: string = 'facilityandfleetmaintanance@gmail.com'
+): Promise<DriveBackupFileInfo> {
+  const token = await getAccessToken();
+  const webUrl = getResolvedWebAppUrl();
+  const fileName = 'Deschide_Facility_and_Fleet_Maintanance_Web.html';
+  const modifiedTime = new Date().toISOString();
+
+  const launcherHtml = `<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <title>Facility and Fleet Maintanance - Web App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0; url=${webUrl}">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b1120; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 32px; max-width: 480px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #38bdf8; }
+    p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+    a.btn { display: inline-block; margin-top: 20px; padding: 12px 24px; border-radius: 10px; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; }
+    a.btn:hover { background: #0369a1; }
+    .meta { margin-top: 24px; font-size: 11px; color: #64748b; border-top: 1px solid #334155; padding-top: 12px; }
+  </style>
+  <script>
+    window.location.replace("${webUrl}");
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h1>Facility and Fleet Maintanance</h1>
+    <p>Se deschide aplicația web în browser...</p>
+    <a class="btn" href="${webUrl}">Deschide Aplicația Web Acum</a>
+    <div class="meta">
+      Cont Google Drive: ${targetAccountHint}<br/>
+      Link generat: ${new Date().toLocaleString('ro-RO')} · Semnătura: Lucian Pop
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const launcherPayload = {
+    type: 'WEB_APP_LAUNCHER_LINK',
+    title: 'Facility and Fleet Maintanance - Web App Shortcut',
+    url: webUrl,
+    targetAccount: targetAccountHint,
+    createdAt: modifiedTime,
+    author: 'Lucian Pop',
+  };
+
+  const localFileInfo: DriveBackupFileInfo = {
+    id: fileName,
+    name: fileName,
+    modifiedTime,
+    size: String(new Blob([launcherHtml]).size),
+  };
+
+  saveLocalVaultBackup({
+    ...localFileInfo,
+    payload: launcherPayload,
+    targetAccount: targetAccountHint,
+  });
+
+  // Direct Google Drive API Upload if real OAuth token is active
+  if (isRealOAuthAccessToken(token)) {
+    try {
+      const metadata = {
+        name: fileName,
+        mimeType: 'text/html',
+        description: `Link de acces în browser web pentru Facility and Fleet Maintanance (${webUrl}) salvat în contul ${targetAccountHint}`,
+      };
+      const boundary = '-------314159265358979323846';
+      const delimiter = `\r\n--${boundary}\r\n`;
+      const closeDelimiter = `\r\n--${boundary}--`;
+
+      const multipartRequestBody =
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+        launcherHtml +
+        closeDelimiter;
+
+      const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+          },
+          body: multipartRequestBody,
+        }
+      );
+
+      if (res.ok) {
+        const driveInfo = await res.json();
+        saveLocalVaultBackup({
+          id: driveInfo.id || fileName,
+          name: driveInfo.name || fileName,
+          modifiedTime: driveInfo.modifiedTime || modifiedTime,
+          size: driveInfo.size || localFileInfo.size,
+          payload: launcherPayload,
+          targetAccount: targetAccountHint,
+        });
+        return driveInfo;
+      }
+    } catch {
+      // Continue to cloud fallback
+    }
+  }
+
+  // Also upload via Cloud Run backend
+  try {
+    const cloudRes = await fetchApiWithFallback('/api/background/drive-upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(isRealOAuthAccessToken(token) ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        backupPayload: launcherPayload,
+        targetAccountHint,
+      }),
+    });
+    if (cloudRes.ok) {
+      const cloudInfo = await cloudRes.json();
+      return {
+        id: cloudInfo.id || fileName,
+        name: cloudInfo.name || fileName,
+        modifiedTime: cloudInfo.modifiedTime || modifiedTime,
+        size: cloudInfo.size || localFileInfo.size,
+      };
+    }
+  } catch {
+    // Return local info
+  }
+
+  return localFileInfo;
+}
+
