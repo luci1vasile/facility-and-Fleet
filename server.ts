@@ -680,8 +680,8 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
       emailClientConnected: true,
       emailClientConnectedAt: new Date().toLocaleString('ro-RO'),
       senderEmail: 'lucian.pop88@gmail.com',
-      recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-      backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+      recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+      backupDriveEmail: 'facilityandfleetmaintenance@gmail.com',
       overdueCount: 0,
       dueSoonCount: 0,
       urgentItems: [],
@@ -691,6 +691,65 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
   }
 
   let daemonState: BackgroundDaemonState = loadDaemonState();
+
+  // Persistent Cloud App State storage for instant online sync between Phone & Web
+  const CLOUD_STATE_FILE = '/tmp/ffm_cloud_app_state.json';
+  const PERSISTENT_DATA_DIR = path.join(process.cwd(), 'data');
+  const PERSISTENT_STATE_FILE = path.join(
+    PERSISTENT_DATA_DIR,
+    'cloud_app_state.json'
+  );
+
+  if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+    try {
+      fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
+    } catch {
+      // Ignore
+    }
+  }
+
+  interface CloudAppStatePayload {
+    updatedAt: string;
+    version: number;
+    appName: string;
+    signature: string;
+    lang?: string;
+    themeId?: string;
+    buildingItems?: any[];
+    vehicles?: any[];
+    providers?: any[];
+    notificationSettings?: any;
+    sourceDevice?: string;
+  }
+
+  let cloudAppState: CloudAppStatePayload | null = null;
+
+  function loadCloudAppState(): CloudAppStatePayload | null {
+    try {
+      if (fs.existsSync(PERSISTENT_STATE_FILE)) {
+        return JSON.parse(fs.readFileSync(PERSISTENT_STATE_FILE, 'utf-8'));
+      }
+      if (fs.existsSync(CLOUD_STATE_FILE)) {
+        return JSON.parse(fs.readFileSync(CLOUD_STATE_FILE, 'utf-8'));
+      }
+    } catch {
+      // Ignore
+    }
+    return null;
+  }
+
+  function saveCloudAppState(state: CloudAppStatePayload) {
+    cloudAppState = state;
+    try {
+      const json = JSON.stringify(state, null, 2);
+      fs.writeFileSync(CLOUD_STATE_FILE, json, 'utf-8');
+      fs.writeFileSync(PERSISTENT_STATE_FILE, json, 'utf-8');
+    } catch {
+      // Ignore
+    }
+  }
+
+  cloudAppState = loadCloudAppState();
 
   function saveDaemonState() {
     try {
@@ -727,7 +786,7 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
         'utf-8'
       ).toString('base64')}?=`;
       const mimeMessage = [
-        `From: "Facility and Fleet Maintanance - Lucian Pop" <${params.senderEmail}>`,
+        `From: "Facility and Fleet Maintenance - Lucian Pop" <${params.senderEmail}>`,
         `To: <${params.recipientEmail}>`,
         `Subject: ${encodedSubject}`,
         'MIME-Version: 1.0',
@@ -754,22 +813,73 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     }
   }
 
+  const DRIVE_BACKUP_FOLDER_NAME = 'Facility and Fleet Maintenance - Backups';
+
+  async function getOrCreateDriveBackupFolderServer(
+    token: string
+  ): Promise<string | null> {
+    try {
+      const query = encodeURIComponent(
+        `name = '${DRIVE_BACKUP_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+      );
+      const searchRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&pageSize=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (searchRes.ok) {
+        const data = (await searchRes.json()) as any;
+        if (Array.isArray(data.files) && data.files.length > 0) {
+          return data.files[0].id;
+        }
+      }
+
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: DRIVE_BACKUP_FOLDER_NAME,
+          mimeType: 'application/vnd.google-apps.folder',
+          description:
+            'Folder dedicat pentru copille de rezervă - Facility and Fleet Maintenance',
+        }),
+      });
+      if (createRes.ok) {
+        const folderData = (await createRes.json()) as any;
+        return folderData.id || null;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   async function uploadDriveBackupViaBearerToken(
     token: string,
     backupPayload: any,
     targetAccountHint: string
   ): Promise<string | null> {
     try {
+      const folderId = await getOrCreateDriveBackupFolderServer(token);
       const timestamp = new Date()
         .toISOString()
         .slice(0, 19)
         .replace(/[:T]/g, '-');
-      const fileName = `Facility_and_Fleet_Maintanance_Backup_${timestamp}.json`;
-      const metadata = {
+      const fileName = `Facility_and_Fleet_Maintenance_Backup_${timestamp}.json`;
+      const metadata: Record<string, any> = {
         name: fileName,
         mimeType: 'application/json',
-        description: `Facility and Fleet Maintanance Background Backup (${targetAccountHint}) - Semnătura: Lucian Pop`,
+        description: `Facility and Fleet Maintenance Background Backup (${targetAccountHint}) - Semnătura: Lucian Pop`,
       };
+      if (folderId) {
+        metadata.parents = [folderId];
+      }
       const jsonBody = JSON.stringify(backupPayload, null, 2);
       const boundary = '-------314159265358979323846';
       const delimiter = `\r\n--${boundary}\r\n`;
@@ -833,7 +943,7 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     ) {
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 650px; color: #0f172a;">
-          <h2 style="color: #dc2626;">Notificare Automată Fundal (09:00 CET) - Facility and Fleet Maintanance</h2>
+          <h2 style="color: #dc2626;">Notificare Automată Fundal (09:00 CET) - Facility and Fleet Maintenance</h2>
           <p><strong>Expeditor:</strong> ${daemonState.senderEmail}<br/>
           <strong>Destinatar:</strong> ${daemonState.recipientEmail}<br/>
           <strong>Mod:</strong> Background Daemon Activ (Aplicație Închisă / Fundal)<br/>
@@ -856,7 +966,7 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
         sentViaGmail = await sendGmailViaBearerToken(activeGoogleAccessToken, {
           senderEmail: daemonState.senderEmail,
           recipientEmail: daemonState.recipientEmail,
-          subject: `[09:00 CET AUTO-ALERT] ${totalUrgent} inspecții Overdue / Due soon - Facility and Fleet Maintanance`,
+          subject: `[09:00 CET AUTO-ALERT] ${totalUrgent} inspecții Overdue / Due soon - Facility and Fleet Maintenance`,
           htmlContent,
         });
       }
@@ -877,19 +987,20 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
         sentViaGmail ? 'Gmail Auto 09:00 CET' : 'Background Email Client 09:00 CET'
       })`;
       daemonState.pendingSwPushNotification = {
-        title: 'Notificare Automată 09:00 CET — Facility and Fleet Maintanance',
+        title: 'Notificare Automată 09:00 CET — Facility and Fleet Maintenance',
         body: `Atenție: ${daemonState.overdueCount} Overdue și ${daemonState.dueSoonCount} Due soon necesită reînnoire! Email transmis către ${daemonState.recipientEmail}.`,
         tag: `ffm-0900-cet-${cetDateISO}`,
       };
       changed = true;
     }
 
-    // 2. Background Automatic Daily Backup (runs even if app is closed)
+    // 2. Background Automatic Daily Backup at 16:00 CET (runs even if app is closed)
     if (
       daemonState.fullBackupPayload &&
-      daemonState.lastDailyBackupDate !== todayISO
+      cetHour >= 16 &&
+      daemonState.lastDailyBackupDate !== cetDateISO
     ) {
-      const localBackupFileName = `Facility_and_Fleet_Maintanance_Backup_${todayISO}.json`;
+      const localBackupFileName = `Facility_and_Fleet_Maintenance_Backup_${cetDateISO}.json`;
       try {
         fs.writeFileSync(
           path.join(BACKUP_DIR, localBackupFileName),
@@ -909,9 +1020,9 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
         );
       }
 
-      daemonState.lastDailyBackupDate = todayISO;
+      daemonState.lastDailyBackupDate = cetDateISO;
       daemonState.lastBackupFileName = driveFileName || localBackupFileName;
-      daemonState.lastBackupAt = `${now.toLocaleString('ro-RO')} (Auto Background Zilnic)`;
+      daemonState.lastBackupAt = `${now.toLocaleString('ro-RO')} (Auto Background 16:00 CET)`;
       changed = true;
     }
 
@@ -953,6 +1064,84 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     });
   });
 
+  // GET /api/app-state: Fetch latest state on page refresh or app startup
+  app.get('/api/app-state', (_req, res) => {
+    let state = cloudAppState;
+    if (!state && daemonState.fullBackupPayload) {
+      state = {
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        appName: 'Facility and Fleet Maintenance',
+        signature: 'Lucian Pop',
+        ...daemonState.fullBackupPayload,
+      };
+    }
+    res.json({
+      ok: true,
+      exists: Boolean(state),
+      state: state || null,
+      serverTime: new Date().toISOString(),
+    });
+  });
+
+  // POST /api/app-state: Save and synchronize state from phone or web
+  app.post('/api/app-state', (req, res) => {
+    const body = req.body || {};
+    const {
+      buildingItems,
+      vehicles,
+      providers,
+      notificationSettings,
+      lang,
+      themeId,
+      sourceDevice,
+    } = body;
+
+    const existing =
+      cloudAppState || (daemonState.fullBackupPayload as any) || {};
+    const nextVersion = (existing.version || 0) + 1;
+    const updatedAt = new Date().toISOString();
+
+    const mergedState: CloudAppStatePayload = {
+      appName: 'Facility and Fleet Maintenance',
+      signature: 'Lucian Pop',
+      version: nextVersion,
+      updatedAt,
+      sourceDevice: sourceDevice || 'web',
+      lang: lang || existing.lang || 'ro',
+      themeId: themeId || existing.themeId || 'midnight-cobalt',
+      buildingItems: Array.isArray(buildingItems)
+        ? buildingItems
+        : existing.buildingItems || [],
+      vehicles: Array.isArray(vehicles)
+        ? vehicles
+        : existing.vehicles || [],
+      providers: Array.isArray(providers)
+        ? providers
+        : existing.providers || [],
+      notificationSettings:
+        notificationSettings || existing.notificationSettings || {},
+    };
+
+    saveCloudAppState(mergedState);
+
+    // Also sync to daemonState so background notifications and 16:00 CET backups work seamlessly
+    daemonState.fullBackupPayload = mergedState;
+    if (notificationSettings?.senderEmail)
+      daemonState.senderEmail = notificationSettings.senderEmail;
+    if (notificationSettings?.recipientEmail)
+      daemonState.recipientEmail = notificationSettings.recipientEmail;
+    if (notificationSettings?.backupDriveEmail)
+      daemonState.backupDriveEmail = notificationSettings.backupDriveEmail;
+    saveDaemonState();
+
+    res.json({
+      ok: true,
+      version: nextVersion,
+      updatedAt,
+    });
+  });
+
   // Sync application state to 24/7 background daemon so notifications & backups run when app is closed
   app.post('/api/background/sync', async (req, res) => {
     const authHeader = req.headers.authorization;
@@ -980,7 +1169,17 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     if (typeof overdueCount === 'number') daemonState.overdueCount = overdueCount;
     if (typeof dueSoonCount === 'number') daemonState.dueSoonCount = dueSoonCount;
     if (Array.isArray(urgentItems)) daemonState.urgentItems = urgentItems;
-    if (fullBackupPayload) daemonState.fullBackupPayload = fullBackupPayload;
+    if (fullBackupPayload) {
+      daemonState.fullBackupPayload = fullBackupPayload;
+      saveCloudAppState({
+        appName: 'Facility and Fleet Maintenance',
+        signature: 'Lucian Pop',
+        version: (cloudAppState?.version || 0) + 1,
+        updatedAt: new Date().toISOString(),
+        sourceDevice: 'daemon-sync',
+        ...fullBackupPayload,
+      });
+    }
 
     saveDaemonState();
     await runServerBackgroundDaemon();
@@ -1106,12 +1305,12 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     const accountEmail =
       targetAccountHint ||
       daemonState.backupDriveEmail ||
-      'facilityandfleetmaintanance@gmail.com';
+      'facilityandfleetmaintenance@gmail.com';
     const timestamp = new Date()
       .toISOString()
       .slice(0, 19)
       .replace(/[:T]/g, '-');
-    const fileName = `Facility_and_Fleet_Maintanance_Backup_${timestamp}.json`;
+    const fileName = `Facility_and_Fleet_Maintenance_Backup_${timestamp}.json`;
     const jsonString = JSON.stringify(backupPayload, null, 2);
 
     try {
@@ -1173,11 +1372,17 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
     // 1. Check Google Drive API if real OAuth token is active
     if (activeGoogleAccessToken) {
       try {
-        const query = encodeURIComponent(
-          "trashed = false and mimeType = 'application/json' and name contains 'Facility_and_Fleet_Maintanance'"
+        const folderId = await getOrCreateDriveBackupFolderServer(
+          activeGoogleAccessToken
         );
+        let queryStr =
+          "trashed = false and mimeType = 'application/json' and (name contains 'Facility_and_Fleet_Maintenance' or name contains 'Facility_and_Fleet_Maintanance')";
+        if (folderId) {
+          queryStr = `trashed = false and mimeType = 'application/json' and ('${folderId}' in parents or name contains 'Facility_and_Fleet_Maintenance')`;
+        }
+        const query = encodeURIComponent(queryStr);
         const driveRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=15`,
+          `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=20`,
           {
             headers: {
               Authorization: `Bearer ${activeGoogleAccessToken}`,
@@ -1204,7 +1409,8 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
           .readdirSync(BACKUP_DIR)
           .filter(
             (name) =>
-              name.startsWith('Facility_and_Fleet_Maintanance_Backup_') &&
+              (name.startsWith('Facility_and_Fleet_Maintenance_Backup_') ||
+                name.startsWith('Facility_and_Fleet_Maintanance_Backup_')) &&
               name.endsWith('.json')
           );
         for (const entryName of entries) {
@@ -1322,7 +1528,7 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
 
   // Download Play-Protect-Compliant Android Studio Project ZIP
   app.get('/api/android-studio/download', (_req, res) => {
-    const zipFileName = 'Facility_and_Fleet_Maintanance_Android_Studio_Project.zip';
+    const zipFileName = 'Facility_and_Fleet_Maintenance_Android_Studio_Project.zip';
     const zipPath = path.join(__dirname, 'public', zipFileName);
     if (!fs.existsSync(zipPath)) {
       res.status(404).json({ error: 'Android Studio project archive not found' });
@@ -1359,7 +1565,7 @@ Returnează EXCLUSIV un obiect JSON valid (fără markdown, fără explicații �
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Facility and Fleet Maintanance server running on http://localhost:${PORT}`);
+    console.log(`Facility and Fleet Maintenance server running on http://localhost:${PORT}`);
   });
 }
 

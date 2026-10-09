@@ -18,19 +18,19 @@ export const AppEmblem: React.FC<{ size?: number; className?: string }> = ({
       aria-label="Facility and Fleet Maintenance Icon - Office Building, Adjustable Wrench, and Car"
     >
       <defs>
-        {/* Lighter, brighter, radiant gradient */}
+        {/* Royal cobalt & radiant sky gradient */}
         <linearGradient id="ffmBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="40%" stopColor="#0284c7" />
-          <stop offset="100%" stopColor="#1d4ed8" />
+          <stop offset="45%" stopColor="#036ace" />
+          <stop offset="100%" stopColor="#0064c5" />
         </linearGradient>
         <linearGradient id="ffmBuildingRoof" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#7dd3fc" />
-          <stop offset="100%" stopColor="#38bdf8" />
+          <stop offset="0%" stopColor="#bae6fd" />
+          <stop offset="100%" stopColor="#7dd3fc" />
         </linearGradient>
         <linearGradient id="ffmCarGlass" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#e0f2fe" />
-          <stop offset="100%" stopColor="#7dd3fc" />
+          <stop offset="0%" stopColor="#f0f9ff" />
+          <stop offset="100%" stopColor="#bae6fd" />
         </linearGradient>
       </defs>
 

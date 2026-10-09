@@ -22,6 +22,9 @@ import {
   ArrowRight,
   Award,
   Search,
+  Calendar,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -81,6 +84,11 @@ import {
   renderEmailHtml,
   renderEmailSubject,
 } from './utils/emailTemplateUtils';
+import {
+  fetchOnlineState,
+  saveOnlineState,
+  subscribeToOnlineStateUpdates,
+} from './services/cloudSync';
 
 const STORAGE_KEY = 'ffm_lucian_pop_state_v1';
 
@@ -108,8 +116,8 @@ export default function App() {
       leadValue: 7,
       leadUnit: 'days',
       senderEmail: 'lucian.pop88@gmail.com',
-      recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-      backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+      recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+      backupDriveEmail: 'facilityandfleetmaintenance@gmail.com',
       customEmailSubject: DEFAULT_EMAIL_SUBJECT,
       customEmailTemplate: DEFAULT_EMAIL_TEMPLATE,
       customEmailSignature: DEFAULT_EMAIL_SIGNATURE,
@@ -161,59 +169,120 @@ export default function App() {
 
   // Google Workspace Auth State
   const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(null);
+  const [isOnlineSynced, setIsOnlineSynced] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Load state from localStorage on mount
+  const applyStatePayload = (parsed: any) => {
+    if (!parsed) return;
+    if (parsed.lang) setLang(parsed.lang);
+    if (parsed.themeId) setThemeId(parsed.themeId);
+    if (
+      Array.isArray(parsed.buildingItems) &&
+      parsed.buildingItems.length > 0
+    ) {
+      setBuildingItems(parsed.buildingItems);
+    }
+    if (Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0) {
+      setVehicles(parsed.vehicles);
+    }
+    if (Array.isArray(parsed.providers) && parsed.providers.length > 0) {
+      setProviders(parsed.providers);
+    }
+    if (parsed.notificationSettings) {
+      setNotificationSettings((prev) => ({
+        ...prev,
+        ...parsed.notificationSettings,
+        autoDailyBackup:
+          parsed.notificationSettings.autoDailyBackup ?? true,
+        notificationTimeCET:
+          parsed.notificationSettings.notificationTimeCET || '09:00',
+        senderEmail: 'lucian.pop88@gmail.com',
+        recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+        backupDriveEmail: 'facilityandfleetmaintenance@gmail.com',
+      }));
+    }
+  };
+
+  // Load state from localStorage on mount + fetch live online state immediately on refresh/startup
   useEffect(() => {
+    // 1. Immediate local restore so screen is never blank
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.lang) setLang(parsed.lang);
-        if (parsed.themeId) setThemeId(parsed.themeId);
-        if (Array.isArray(parsed.buildingItems) && parsed.buildingItems.length > 0) {
-          setBuildingItems(parsed.buildingItems);
-        }
-        if (Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0) {
-          setVehicles(parsed.vehicles);
-        }
-        if (Array.isArray(parsed.providers) && parsed.providers.length > 0) {
-          setProviders(parsed.providers);
-        }
-        if (parsed.notificationSettings) {
-          setNotificationSettings({
-            ...parsed.notificationSettings,
-            autoDailyBackup: parsed.notificationSettings.autoDailyBackup ?? true,
-            notificationTimeCET:
-              parsed.notificationSettings.notificationTimeCET || '09:00',
-            senderEmail: 'lucian.pop88@gmail.com',
-            recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-            backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
-          });
-        }
+        applyStatePayload(JSON.parse(raw));
       }
     } catch (e) {
-      console.error('Failed to load saved state:', e);
+      console.error('Failed to load local state:', e);
     }
+
+    // 2. Fetch latest online database immediately (on page load / refresh)
+    setIsSyncing(true);
+    fetchOnlineState()
+      .then((onlineState) => {
+        if (onlineState) {
+          applyStatePayload(onlineState);
+          setIsOnlineSynced(true);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(onlineState));
+          } catch {}
+        }
+      })
+      .finally(() => {
+        setIsSyncing(false);
+      });
+
+    // 3. Keep synchronized when user focuses window or returns to tab
+    const unsubscribeSync = subscribeToOnlineStateUpdates((remoteState) => {
+      applyStatePayload(remoteState);
+      setIsOnlineSynced(true);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteState));
+      } catch {}
+    });
+
+    return () => {
+      unsubscribeSync();
+    };
   }, []);
 
-  // Save state to localStorage on change
+  // Save state to localStorage & synchronize online to cloud whenever state changes
   useEffect(() => {
+    const payload = {
+      lang,
+      themeId,
+      buildingItems,
+      vehicles,
+      providers,
+      notificationSettings,
+    };
+
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          lang,
-          themeId,
-          buildingItems,
-          vehicles,
-          providers,
-          notificationSettings,
-        })
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.error('Failed to save state:', e);
     }
+
+    // Save online so phone app and web page are 100% in sync
+    saveOnlineState(payload).then((ok) => {
+      if (ok) setIsOnlineSynced(true);
+    });
   }, [lang, themeId, buildingItems, vehicles, providers, notificationSettings]);
+
+  const handleForceOnlineSync = async () => {
+    setIsSyncing(true);
+    try {
+      const online = await fetchOnlineState();
+      if (online) {
+        applyStatePayload(online);
+        setIsOnlineSynced(true);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(online));
+        } catch {}
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Initialize Firebase Google Auth listener & Auto-Connect Email Client + Background Service at App Startup
   useEffect(() => {
@@ -226,10 +295,10 @@ export default function App() {
       senderEmail: notificationSettings.senderEmail || 'lucian.pop88@gmail.com',
       recipientEmail:
         notificationSettings.recipientEmail ||
-        'Facilityandfleetmaintanance@gmail.com',
+        'Facilityandfleetmaintenance@gmail.com',
       backupDriveEmail:
         notificationSettings.backupDriveEmail ||
-        'facilityandfleetmaintanance@gmail.com',
+        'facilityandfleetmaintenance@gmail.com',
     }).then((status) => {
       setNotificationSettings((prev) => ({
         ...prev,
@@ -455,7 +524,7 @@ export default function App() {
         recipientEmail: notificationSettings.recipientEmail,
         backupDriveEmail:
           notificationSettings.backupDriveEmail ||
-          'facilityandfleetmaintanance@gmail.com',
+          'facilityandfleetmaintenance@gmail.com',
         overdueCount: overdueInspections.length,
         dueSoonCount: dueSoonInspections.length,
         urgentItems: urgentItems.map((u) => ({
@@ -494,26 +563,26 @@ export default function App() {
         });
       }
 
-      // 3. Automatic Daily Backup to Google Drive when OAuth token is active
-      const todayISO = formatTodayISO();
+      // 3. Automatic Daily Backup to Google Drive at 16:00 CET
       if (
         googleUser &&
         notificationSettings.autoDailyBackup !== false &&
-        notificationSettings.lastDailyBackupDate !== todayISO
+        cetHour >= 16 &&
+        notificationSettings.lastDailyBackupDate !== cetDateISO
       ) {
         try {
           await uploadBackupToGoogleDrive(
             fullBackupPayload,
             notificationSettings.backupDriveEmail ||
-              'facilityandfleetmaintanance@gmail.com'
+              'facilityandfleetmaintenance@gmail.com'
           );
           setNotificationSettings((prev) => ({
             ...prev,
-            lastDailyBackupDate: todayISO,
-            lastBackupAt: `${new Date().toLocaleString('ro-RO')} (Auto Zilnic)`,
+            lastDailyBackupDate: cetDateISO,
+            lastBackupAt: `${new Date().toLocaleString('ro-RO')} (Auto 16:00 CET)`,
           }));
         } catch (e) {
-          console.warn('Daily auto-backup handled by background daemon:', e);
+          console.warn('Daily auto-backup at 16:00 CET warning:', e);
         }
       }
     };
@@ -925,6 +994,27 @@ export default function App() {
 
         {/* Right Zone: Primary Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleForceOnlineSync}
+            disabled={isSyncing}
+            className={`px-2.5 py-1.5 rounded-lg border ${currentTheme.borderSubtle} ${currentTheme.bgElevated} text-xs font-semibold flex items-center gap-1.5 transition hover:opacity-90 cursor-pointer`}
+            title="Sincronizare completă cu aplicația de pe telefon. Apăsați pentru reîmprospătare din online."
+          >
+            <Cloud
+              className={`w-3.5 h-3.5 ${
+                isOnlineSynced ? 'text-emerald-500' : 'text-sky-500'
+              }`}
+            />
+            <RefreshCw
+              className={`w-3 h-3 text-sky-500 ${
+                isSyncing ? 'animate-spin' : ''
+              }`}
+            />
+            <span className="hidden md:inline text-[11px] font-mono">
+              {isSyncing ? 'Sincronizare...' : 'Online Sincronizat'}
+            </span>
+          </button>
           <PWAInstallButton />
           <button
             type="button"
@@ -1385,10 +1475,12 @@ export default function App() {
                                 </div>
                                 <div className={`text-xs ${currentTheme.textSecondary} flex flex-wrap items-center gap-x-3 gap-y-1`}>
                                   <span>{entry.subtitle}</span>
-                                  <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
-                                    <Wrench className="w-3 h-3" />
-                                    <span>Furnizor: {entry.provider || 'Standard'}</span>
-                                  </span>
+                                  {entry.provider && entry.provider !== '-' && (
+                                    <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
+                                      <Wrench className="w-3 h-3" />
+                                      <span>Furnizor: {entry.provider}</span>
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
@@ -1688,10 +1780,12 @@ export default function App() {
                                 </div>
                                 <div className={`text-xs ${currentTheme.textSecondary} flex flex-wrap items-center gap-x-3 gap-y-1`}>
                                   <span>{entry.subtitle}</span>
-                                  <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
-                                    <Wrench className="w-3 h-3" />
-                                    <span>Furnizor: {entry.provider || 'Standard'}</span>
-                                  </span>
+                                  {entry.provider && entry.provider !== '-' && (
+                                    <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
+                                      <Wrench className="w-3 h-3" />
+                                      <span>Furnizor: {entry.provider}</span>
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 

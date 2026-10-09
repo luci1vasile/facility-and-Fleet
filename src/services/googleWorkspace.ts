@@ -248,8 +248,8 @@ export const googleSignIn = async (
             },
             body: JSON.stringify({
               senderEmail: result.user.email || targetEmail,
-              recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-              backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+              recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+              backupDriveEmail: 'facilityandfleetmaintenance@gmail.com',
             }),
           }).catch(() => {});
 
@@ -281,8 +281,8 @@ export const googleSignIn = async (
         },
         body: JSON.stringify({
           senderEmail: targetEmail,
-          recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-          backupDriveEmail: 'facilityandfleetmaintanance@gmail.com',
+          recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+          backupDriveEmail: 'facilityandfleetmaintenance@gmail.com',
         }),
       });
     } catch {
@@ -494,7 +494,7 @@ export async function sendGmailAlertEmail(params: {
       )}?=`;
 
       const mimeMessage = [
-        `From: "Facility and Fleet Maintanance - Lucian Pop" <${params.senderEmail}>`,
+        `From: "Facility and Fleet Maintenance - Lucian Pop" <${params.senderEmail}>`,
         `To: <${params.recipientEmail}>`,
         `Subject: ${encodedSubject}`,
         'MIME-Version: 1.0',
@@ -609,11 +609,15 @@ export async function listDriveBackups(): Promise<DriveBackupFileInfo[]> {
   // 1. Live Google Drive API (if real OAuth token is active)
   if (isRealOAuthAccessToken(token)) {
     try {
-      const query = encodeURIComponent(
-        "trashed = false and mimeType = 'application/json' and name contains 'Facility_and_Fleet_Maintanance'"
-      );
+      const folderId = await getOrCreateDriveBackupFolder(token);
+      let queryStr =
+        "trashed = false and mimeType = 'application/json' and (name contains 'Facility_and_Fleet_Maintenance' or name contains 'Facility_and_Fleet_Maintanance')";
+      if (folderId) {
+        queryStr = `trashed = false and mimeType = 'application/json' and ('${folderId}' in parents or name contains 'Facility_and_Fleet_Maintenance')`;
+      }
+      const query = encodeURIComponent(queryStr);
       const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=15`,
+        `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=20`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -694,13 +698,65 @@ export async function listDriveBackups(): Promise<DriveBackupFileInfo[]> {
   );
 }
 
+export const DRIVE_BACKUP_FOLDER_NAME = 'Facility and Fleet Maintenance - Backups';
+
+/**
+ * Finds or automatically creates the dedicated backup folder in Google Drive.
+ */
+export async function getOrCreateDriveBackupFolder(
+  token: string
+): Promise<string | null> {
+  if (!isRealOAuthAccessToken(token)) return null;
+  try {
+    const query = encodeURIComponent(
+      `name = '${DRIVE_BACKUP_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+    );
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&pageSize=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (searchRes.ok) {
+      const data = await searchRes.json();
+      if (Array.isArray(data.files) && data.files.length > 0) {
+        return data.files[0].id;
+      }
+    }
+
+    // Create folder if it doesn't exist yet
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: DRIVE_BACKUP_FOLDER_NAME,
+        mimeType: 'application/vnd.google-apps.folder',
+        description:
+          'Folder dedicat pentru salvarea copiilor de rezervă - Facility and Fleet Maintenance',
+      }),
+    });
+    if (createRes.ok) {
+      const folderData = await createRes.json();
+      return folderData.id || null;
+    }
+  } catch (err) {
+    console.warn('Could not get or create Drive backup folder:', err);
+  }
+  return null;
+}
+
 export async function uploadBackupToGoogleDrive(
   backupPayload: unknown,
-  targetAccountHint: string = 'facilityandfleetmaintanance@gmail.com'
+  targetAccountHint: string = 'facilityandfleetmaintenance@gmail.com'
 ): Promise<DriveBackupFileInfo> {
   const token = await getAccessToken();
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  const fileName = `Facility_and_Fleet_Maintanance_Backup_${timestamp}.json`;
+  const fileName = `Facility_and_Fleet_Maintenance_Backup_${timestamp}.json`;
   const modifiedTime = new Date().toISOString();
   const jsonBody = JSON.stringify(backupPayload, null, 2);
 
@@ -733,14 +789,18 @@ export async function uploadBackupToGoogleDrive(
     }
   }
 
-  // 3. Direct Google Drive API Upload if real OAuth token is active
+  // 3. Direct Google Drive API Upload if real OAuth token is active (inside the dedicated folder)
   if (isRealOAuthAccessToken(token)) {
     try {
-      const metadata = {
+      const folderId = await getOrCreateDriveBackupFolder(token);
+      const metadata: Record<string, any> = {
         name: fileName,
         mimeType: 'application/json',
-        description: `Facility and Fleet Maintanance Backup (${targetAccountHint}) - Semnătura: Lucian Pop`,
+        description: `Facility and Fleet Maintenance Backup (${targetAccountHint}) - Semnătura: Lucian Pop`,
       };
+      if (folderId) {
+        metadata.parents = [folderId];
+      }
       const boundary = '-------314159265358979323846';
       const delimiter = `\r\n--${boundary}\r\n`;
       const closeDelimiter = `\r\n--${boundary}--`;
@@ -898,18 +958,18 @@ export function getResolvedWebAppUrl(): string {
  * so the application can be opened directly from Google Drive in any web browser.
  */
 export async function saveWebAppLauncherToGoogleDrive(
-  targetAccountHint: string = 'facilityandfleetmaintanance@gmail.com'
+  targetAccountHint: string = 'facilityandfleetmaintenance@gmail.com'
 ): Promise<DriveBackupFileInfo> {
   const token = await getAccessToken();
   const webUrl = getResolvedWebAppUrl();
-  const fileName = 'Deschide_Facility_and_Fleet_Maintanance_Web.html';
+  const fileName = 'Deschide_Facility_and_Fleet_Maintenance_Web.html';
   const modifiedTime = new Date().toISOString();
 
   const launcherHtml = `<!DOCTYPE html>
 <html lang="ro">
 <head>
   <meta charset="UTF-8">
-  <title>Facility and Fleet Maintanance - Web App</title>
+  <title>Facility and Fleet Maintenance - Web App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="refresh" content="0; url=${webUrl}">
   <style>
@@ -927,7 +987,7 @@ export async function saveWebAppLauncherToGoogleDrive(
 </head>
 <body>
   <div class="card">
-    <h1>Facility and Fleet Maintanance</h1>
+    <h1>Facility and Fleet Maintenance</h1>
     <p>Se deschide aplicația web în browser...</p>
     <a class="btn" href="${webUrl}">Deschide Aplicația Web Acum</a>
     <div class="meta">
@@ -940,7 +1000,7 @@ export async function saveWebAppLauncherToGoogleDrive(
 
   const launcherPayload = {
     type: 'WEB_APP_LAUNCHER_LINK',
-    title: 'Facility and Fleet Maintanance - Web App Shortcut',
+    title: 'Facility and Fleet Maintenance - Web App Shortcut',
     url: webUrl,
     targetAccount: targetAccountHint,
     createdAt: modifiedTime,
@@ -963,11 +1023,15 @@ export async function saveWebAppLauncherToGoogleDrive(
   // Direct Google Drive API Upload if real OAuth token is active
   if (isRealOAuthAccessToken(token)) {
     try {
-      const metadata = {
+      const folderId = await getOrCreateDriveBackupFolder(token);
+      const metadata: Record<string, any> = {
         name: fileName,
         mimeType: 'text/html',
-        description: `Link de acces în browser web pentru Facility and Fleet Maintanance (${webUrl}) salvat în contul ${targetAccountHint}`,
+        description: `Link de acces în browser web pentru Facility and Fleet Maintenance (${webUrl}) salvat în contul ${targetAccountHint}`,
       };
+      if (folderId) {
+        metadata.parents = [folderId];
+      }
       const boundary = '-------314159265358979323846';
       const delimiter = `\r\n--${boundary}\r\n`;
       const closeDelimiter = `\r\n--${boundary}--`;

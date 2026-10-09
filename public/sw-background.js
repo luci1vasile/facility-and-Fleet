@@ -1,4 +1,4 @@
-// Facility and Fleet Maintanance - Background Service Worker Daemon
+// Facility and Fleet Maintenance - Background Service Worker Daemon
 // Runs in the background even when the application window/tab is closed by the user.
 // Executes 09:00 CET Overdue/Due Soon Push Notifications and triggers Automatic Daily Backups.
 
@@ -99,7 +99,7 @@ async function runBackgroundCheckInServiceWorker() {
       await saveSwState(cached);
 
       await self.registration.showNotification(
-        'Notificare Automată 09:00 CET — Facility and Fleet Maintanance',
+        'Notificare Automată 09:00 CET — Facility and Fleet Maintenance',
         {
           body: `Alerte active în fundal: ${overdueCount} Overdue și ${dueSoonCount} Due soon necesită atenție!`,
           icon: '/pwa-192x192.png',
@@ -148,7 +148,7 @@ self.addEventListener('sync', (event) => {
 
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Facility and Fleet Maintanance — Alerte Mentenanță & Flotă',
+    title: 'Facility and Fleet Maintenance — Alerte Mentenanță & Flotă',
     body: 'Verificați elementele Overdue și Due soon din aplicație.',
   };
   try {

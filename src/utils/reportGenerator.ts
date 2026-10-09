@@ -134,7 +134,7 @@ export async function createExcelWorkbookBuffer(params: {
 }): Promise<{ blob: Blob; fileName: string }> {
   const { buildingItems, vehicles, providers, allInspections, lang } = params;
   const t = TRANSLATIONS[lang];
-  const fileName = `Facility_and_Fleet_Maintanance_${formatTodayISO()}.xlsx`;
+  const fileName = `Facility_and_Fleet_Maintenance_${formatTodayISO()}.xlsx`;
 
   const overdueCount = allInspections.filter((i) => i.status === 'overdue').length;
   const dueSoonCount = allInspections.filter((i) => i.status === 'due_soon').length;
@@ -142,7 +142,7 @@ export async function createExcelWorkbookBuffer(params: {
 
   // 1. First Sheet: "General"
   const generalRows: any[][] = [
-    ['FACILITY AND FLEET MAINTANANCE - RAPORT DETALIAT GENERAL'],
+    ['FACILITY AND FLEET MAINTENANCE - RAPORT DETALIAT GENERAL'],
     [
       'App by Lucian Pop',
       `Data Generării: ${formatTodayISO()}`,
@@ -181,7 +181,7 @@ export async function createExcelWorkbookBuffer(params: {
 
   // 2. Second Sheet: "Mentenanta Cladire"
   const buildingRows: any[][] = [
-    ['MENTENANȚĂ CLĂDIRE - TOATE SUBCATEGORIILE (Facility and Fleet Maintanance - App by Lucian Pop)'],
+    ['MENTENANȚĂ CLĂDIRE - TOATE SUBCATEGORIILE (Facility and Fleet Maintenance - App by Lucian Pop)'],
     [],
     [
       'COD',
@@ -222,6 +222,7 @@ export async function createExcelWorkbookBuffer(params: {
       'NUMĂR VIN (SERIE ȘASIU)',
       'UTILIZATOR (NUME)',
       'MARCĂ / MODEL',
+      'DATA PRIMEI ÎNMATRICULĂRI',
       'DATA EXPIRARE ITP/MOT',
       'ZILE RĂMASE ITP',
       'STATUS ITP/MOT',
@@ -239,6 +240,7 @@ export async function createExcelWorkbookBuffer(params: {
       v.vinNumber || '-',
       v.userName,
       v.makeModel,
+      v.firstRegistrationDate || '-',
       hasDate ? v.itpExpiryDate : 'Nesetat',
       days,
       st,
@@ -440,7 +442,7 @@ export function createPdfReportBlob(params: {
   doc.rect(0, 0, 297, 24, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(15);
-  doc.text('FACILITY AND FLEET MAINTANANCE - RAPORT GENERAL', 14, 11);
+  doc.text('FACILITY AND FLEET MAINTENANCE - RAPORT GENERAL', 14, 11);
   doc.setFontSize(9);
   doc.text(
     `App by Lucian Pop   |   Data: ${formatDateDisplay(formatTodayISO(), lang)}   |   Limba: ${lang.toUpperCase()}   |   Overdue: ${overdueCount}   |   Due soon: ${dueSoonCount}   |   OK: ${okCount}`,
@@ -515,6 +517,7 @@ export function createPdfReportBlob(params: {
       v.plateNumber,
       v.userName,
       v.makeModel,
+      v.firstRegistrationDate || '-',
       hasItp ? `${v.itpExpiryDate} (${itpDays}z)` : 'Nesetat',
       itpSt,
       vigSummary,
@@ -523,7 +526,7 @@ export function createPdfReportBlob(params: {
 
   autoTable(doc, {
     startY: 24,
-    head: [['Nr. Auto', 'Utilizator', 'Model', 'Expirare ITP/MOT', 'Status ITP', 'Viniete (RO, HU, SK, CZ, AT)']],
+    head: [['Nr. Auto', 'Utilizator', 'Model', 'Data Înmatriculării', 'Expirare ITP/MOT', 'Status ITP', 'Viniete (RO, HU, SK, CZ, AT)']],
     body: vehicleAndVignetteRows,
     styles: { fontSize: 8, cellPadding: 2.5 },
     headStyles: { fillColor: [2, 132, 199], textColor: 255 },
@@ -550,7 +553,7 @@ export function createPdfReportBlob(params: {
   });
 
   const blob = doc.output('blob');
-  const fileName = `Facility_and_Fleet_Maintanance_${formatTodayISO()}.pdf`;
+  const fileName = `Facility_and_Fleet_Maintenance_${formatTodayISO()}.pdf`;
   return { blob, fileName };
 }
 
@@ -574,6 +577,7 @@ export function createInspectionsCsvBlob(params: {
       'Cod / Identificator',
       'Denumire Element / Nr. Înmatriculare',
       'Responsabil / Utilizator / Model',
+      'Data Primei Înmatriculări',
       'Furnizor / Prestator Servicii',
       'Data Expirării',
       'Zile Rămase',
@@ -596,7 +600,8 @@ export function createInspectionsCsvBlob(params: {
       b.code,
       b.name,
       'Administrator / Tehnic',
-      b.assignedProvider || 'Standard',
+      '-',
+      b.assignedProvider || '-',
       hasDate ? b.expiryDate : 'Nesetat',
       hasDate ? days : '',
       st,
@@ -616,6 +621,7 @@ export function createInspectionsCsvBlob(params: {
       v.vinNumber || '-',
       v.plateNumber,
       `${v.userName} (${v.makeModel})`,
+      v.firstRegistrationDate || '-',
       'Stație ITP Autorizată RAR',
       hasItp ? v.itpExpiryDate : 'Nesetat',
       hasItp ? days : '',
@@ -637,6 +643,7 @@ export function createInspectionsCsvBlob(params: {
         vg.country,
         `${v.plateNumber} [${vg.country}]`,
         `${v.userName} (${v.makeModel})`,
+        v.firstRegistrationDate || '-',
         `Operator Drumuri / Taxare ${vg.country}`,
         hasVig ? vg.expiryDate : 'Nesetat',
         hasVig ? days : '',

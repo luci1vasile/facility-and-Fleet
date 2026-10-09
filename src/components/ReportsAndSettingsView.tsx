@@ -26,6 +26,9 @@ import {
   Eye,
   Edit3,
   Save,
+  Sun,
+  Moon,
+  CheckCircle2,
 } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -64,7 +67,7 @@ import {
 } from '../utils/emailTemplateUtils';
 
 export async function downloadAndroidStudioProjectZip(): Promise<string> {
-  const zipFileName = 'Facility_and_Fleet_Maintanance_Android_Studio_Project.zip';
+  const zipFileName = 'Facility_and_Fleet_Maintenance_Android_Studio_Project.zip';
   try {
     const res = await fetch('/api/android-studio/download', {
       method: 'GET',
@@ -199,8 +202,8 @@ export const ReportsView: React.FC<ReportsProps> = ({
     ) {
       try {
         await navigator.share({
-          title: `Facility and Fleet Maintanance - Raport (${shareFormat.toUpperCase()})`,
-          text: `Raport generat din aplicația Facility and Fleet Maintanance (App by Lucian Pop).`,
+          title: `Facility and Fleet Maintenance - Raport (${shareFormat.toUpperCase()})`,
+          text: `Raport generat din aplicația Facility and Fleet Maintenance (App by Lucian Pop).`,
           files: [file],
         });
         setStatusMessage(
@@ -226,9 +229,9 @@ export const ReportsView: React.FC<ReportsProps> = ({
       const dueSoon = allInspections.filter((i) => i.status === 'due_soon');
       const html = `
         <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 680px;">
-          <h2 style="color: #1e3a8a;">Facility and Fleet Maintanance - Raport General (${shareFormat.toUpperCase()})</h2>
+          <h2 style="color: #1e3a8a;">Facility and Fleet Maintenance - Raport General (${shareFormat.toUpperCase()})</h2>
           <p><strong>Expeditor:</strong> lucian.pop88@gmail.com<br/>
-          <strong>Destinatar:</strong> Facilityandfleetmaintanance@gmail.com<br/>
+          <strong>Destinatar:</strong> Facilityandfleetmaintenance@gmail.com<br/>
           <strong>App by Lucian Pop</strong></p>
           <hr/>
           <p><strong>Sumar Inspecții la data de ${formatTodayISO()}:</strong></p>
@@ -267,20 +270,20 @@ export const ReportsView: React.FC<ReportsProps> = ({
                 .join('')}
             </tbody>
           </table>
-          <p style="margin-top: 16px; font-size: 12px; color: #64748b;">Generat automat din Facility and Fleet Maintanance · App by Lucian Pop</p>
+          <p style="margin-top: 16px; font-size: 12px; color: #64748b;">Generat automat din Facility and Fleet Maintenance · App by Lucian Pop</p>
         </div>
       `;
 
       await sendGmailAlertEmail({
         senderEmail: 'lucian.pop88@gmail.com',
-        recipientEmail: 'Facilityandfleetmaintanance@gmail.com',
-        subject: `[Facility and Fleet Maintanance] Raport General (${formatTodayISO()}) - Lucian Pop`,
+        recipientEmail: 'Facilityandfleetmaintenance@gmail.com',
+        subject: `[Facility and Fleet Maintenance] Raport General (${formatTodayISO()}) - Lucian Pop`,
         htmlContent: html,
       });
 
       setConfirmEmailReportModal(false);
       setStatusMessage(
-        'Raportul detaliat a fost transmis prin Gmail de pe lucian.pop88@gmail.com către Facilityandfleetmaintanance@gmail.com!'
+        'Raportul detaliat a fost transmis prin Gmail de pe lucian.pop88@gmail.com către Facilityandfleetmaintenance@gmail.com!'
       );
     } catch (err: any) {
       setStatusMessage(
@@ -495,7 +498,7 @@ export const ReportsView: React.FC<ReportsProps> = ({
                   <Mail className="w-4 h-4 text-red-500" />
                 )}
                 <span>
-                  Trimite Raport pe Email (lucian.pop88@gmail.com → Facilityandfleetmaintanance@gmail.com)
+                  Trimite Raport pe Email (lucian.pop88@gmail.com → Facilityandfleetmaintenance@gmail.com)
                 </span>
               </button>
               {!googleUser && (
@@ -724,7 +727,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
       const perm = await Notification.requestPermission();
       setPushPermissionStatus(perm);
       if (perm === 'granted') {
-        new Notification('Facility and Fleet Maintanance - Lucian Pop', {
+        new Notification('Facility and Fleet Maintenance - Lucian Pop', {
           body: `Notificările automate (ora 09:00 CET) sunt active! ${overdueAndDueSoonInspections.length} inspecții sunt Overdue sau Due soon.`,
           icon: '/pwa-192x192.png',
         });
@@ -769,7 +772,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
           pushEnabled: true,
         });
 
-        const title = '🔔 [TEST NOTIFICARE] Facility and Fleet Maintanance';
+        const title = '🔔 [TEST NOTIFICARE] Facility and Fleet Maintenance';
         const options: NotificationOptions = {
           body: `Permisiunile de notificare browser/push sunt ACTIVE și confirmate! Aplicația este gata să transmită alerte automate la ora 09:00 CET pentru cele ${overdueAndDueSoonInspections.length} inspecții scadente.`,
           icon: '/pwa-192x192.png',
@@ -911,7 +914,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
         lastBackupAt: new Date().toLocaleString('ro-RO'),
       });
       setFeedbackBanner(
-        `Backup-ul "${fileInfo.name}" a fost salvat cu succes în Google Drive (${notificationSettings.backupDriveEmail})!`
+        `Backup-ul "${fileInfo.name}" a fost salvat cu succes în folderul "Facility and Fleet Maintenance - Backups" din Google Drive (${notificationSettings.backupDriveEmail})!`
       );
       const updatedList = await listDriveBackups();
       setDriveFilesList(updatedList);
@@ -1028,7 +1031,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* 2. 6 Color Themes Selector (Dropdown Menu) */}
+        {/* 2. Color Themes Selector (Dropdown Menu Exclusively) */}
         <div
           className={`p-6 rounded-xl border ${theme.borderSubtle} ${theme.bgSurface} space-y-4`}
         >
@@ -1047,7 +1050,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
             >
               {THEMES.map((th) => (
                 <option key={th.id} value={th.id}>
-                  {th.autoName[lang]} — {th.colorMixLabel[lang]}
+                  {th.mode === 'light' ? '☀️' : '🌙'} {th.autoName[lang]} — {th.colorMixLabel[lang]}
                 </option>
               ))}
             </select>
@@ -1060,13 +1063,17 @@ export const SettingsView: React.FC<SettingsProps> = ({
             <div className="truncate">
               <span className={theme.textMuted}>Temă Activă: </span>
               <strong className={theme.textPrimary}>{theme.autoName[lang]}</strong>
+              <span className="ml-2 text-[11px] font-mono opacity-75">
+                ({theme.mode === 'light' ? 'Mod Luminos' : 'Mod Întunecat'})
+              </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {theme.previewSwatches.map((hex, i) => (
                 <span
                   key={i}
-                  className="w-5 h-5 rounded-full border border-slate-400/40"
+                  className="w-5 h-5 rounded-full border border-slate-400/40 shadow-xs"
                   style={{ backgroundColor: hex }}
+                  title={hex}
                 />
               ))}
             </div>
@@ -1308,8 +1315,12 @@ export const SettingsView: React.FC<SettingsProps> = ({
                 </strong>
               </div>
               <div className="flex justify-between">
+                <span className={theme.textMuted}>Folder Google Drive dedicat:</span>
+                <strong className="font-mono text-sky-500">Facility and Fleet Maintenance - Backups</strong>
+              </div>
+              <div className="flex justify-between">
                 <span className={theme.textMuted}>Programare Backup către Google Drive:</span>
-                <strong className="font-mono text-emerald-500">Se creează automat zilnic</strong>
+                <strong className="font-mono text-emerald-500">Zilnic automat la ora 16:00 CET</strong>
               </div>
               {notificationSettings.lastBackupAt && (
                 <div className="flex justify-between pt-1 border-t border-slate-300/30 dark:border-slate-700/30 text-emerald-500 font-mono">
@@ -1452,7 +1463,7 @@ export const SettingsView: React.FC<SettingsProps> = ({
                 });
                 triggerBrowserDownload(
                   blob,
-                  `Facility_and_Fleet_Maintanance_Backup_${formatTodayISO()}.json`
+                  `Facility_and_Fleet_Maintenance_Backup_${formatTodayISO()}.json`
                 );
               }}
               className={`text-xs font-semibold ${theme.textSecondary} hover:underline inline-flex items-center gap-1`}

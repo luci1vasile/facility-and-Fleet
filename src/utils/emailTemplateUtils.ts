@@ -2,19 +2,19 @@ import { UnifiedInspectionEntry } from '../types';
 import { formatTodayISO } from './dateUtils';
 
 export const DEFAULT_EMAIL_SUBJECT =
-  '[ALERTĂ EXPIRARE] {nr_elemente} elemente scadente - Facility and Fleet Maintanance';
+  '[ALERTĂ EXPIRARE] {nr_elemente} elemente scadente - Facility and Fleet Maintenance';
 
 export const DEFAULT_EMAIL_TEMPLATE =
   `<p>Bună ziua,</p>
 <p>Vă informăm că la data de <strong>{data}</strong> există <strong>{nr_elemente} inspecții / termene scadente</strong> (Mentenanță Clădire, ITP / MOT și Viniete de drum) care necesită intervenție sau reînnoire:</p>
 {tabel_inspectii}
-<p style="margin-top: 16px;">Vă rugăm să efectuați demersurile de verificare și reînnoire sau să actualizați noile termene în aplicația <em>Facility and Fleet Maintanance</em>.</p>`;
+<p style="margin-top: 16px;">Vă rugăm să efectuați demersurile de verificare și reînnoire sau să actualizați noile termene în aplicația <em>Facility and Fleet Maintenance</em>.</p>`;
 
 export const DEFAULT_EMAIL_SIGNATURE =
   `Lucian Pop
 Administrator Mentenanță Clădire & Flotă
-Facility and Fleet Maintanance · Timișoara
-Email: Facilityandfleetmaintanance@gmail.com`;
+Facility and Fleet Maintenance · Timișoara
+Email: Facilityandfleetmaintenance@gmail.com`;
 
 export interface RenderEmailOptions {
   subjectPattern?: string;
@@ -141,7 +141,7 @@ export function renderEmailHtml(options: RenderEmailOptions): string {
   return `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 680px; margin: 0 auto; color: #0f172a; line-height: 1.5;">
       <div style="background: #0f172a; padding: 18px 22px; border-radius: 8px 8px 0 0; color: #ffffff;">
-        <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">Facility and Fleet Maintanance</h2>
+        <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">Facility and Fleet Maintenance</h2>
         <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Sistem Automat de Notificare · Notificări 09:00 CET</div>
       </div>
 
@@ -161,7 +161,7 @@ export function renderEmailHtml(options: RenderEmailOptions): string {
       </div>
 
       <div style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 14px;">
-        Acest e-mail a fost generat automat din aplicația Facility and Fleet Maintanance.
+        Acest e-mail a fost generat automat din aplicația Facility and Fleet Maintenance.
       </div>
     </div>
   `;
